@@ -1,6 +1,6 @@
-# Vértice CRM · MVP 2
+# Viestro CRM · MVP 2
 
-CRM para aquisição, qualificação, tarefas, campanhas e conversão. Identidade azul-marinho/azul e logo da Vértice. Método: Diagnóstico → Arquitetura → Implementação → Evolução.
+CRM para aquisição, qualificação, tarefas, campanhas e conversão. Identidade azul-marinho/azul e logo da Viestro. Método: Diagnóstico → Arquitetura → Implementação → Evolução.
 
 ## Estado da entrega
 
@@ -15,7 +15,7 @@ CRM para aquisição, qualificação, tarefas, campanhas e conversão. Identidad
 
 Node >=22.13, npm. `npm ci`, copie `.env.example` para `.env.local`, `npm run dev`.
 
-O login e as operações do CRM usam apenas URL/chave publicável + sessão do usuário. Na instalação Vértice, a URL e a chave publicável do projeto autorizado têm valores padrão no código; o login pode inicializar mesmo sem copiar o arquivo de ambiente. Variáveis configuradas substituem esses valores. Para outro projeto, configure URL e chave correspondentes; uma URL diferente nunca reutiliza a chave padrão. A chave publicável é identificador público; RLS e funções validam autorização. `SUPABASE_SECRET_KEY` é somente servidor, necessária para captura externa e worker. Nunca use prefixo `NEXT_PUBLIC_` para segredos.
+O login e as operações do CRM usam apenas URL/chave publicável + sessão do usuário. Na instalação Viestro, a URL e a chave publicável do projeto autorizado têm valores padrão no código; o login pode inicializar mesmo sem copiar o arquivo de ambiente. Variáveis configuradas substituem esses valores. Para outro projeto, configure URL e chave correspondentes; uma URL diferente nunca reutiliza a chave padrão. A chave publicável é identificador público; RLS e funções validam autorização. `SUPABASE_SECRET_KEY` é somente servidor, necessária para captura externa e worker. Nunca use prefixo `NEXT_PUBLIC_` para segredos.
 
 `npm run build`, `npm run typecheck`, `npm test`.
 

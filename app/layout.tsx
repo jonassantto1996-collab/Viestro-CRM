@@ -2,7 +2,7 @@ import type { Metadata } from "next";
 import "./globals.css";
 
 export const metadata: Metadata = {
-  title: "Vértice CRM | Gestão e conversão",
+  title: "Viestro CRM | Gestão e conversão",
   description: "Aquisição, qualificação e conversão em uma única operação.",
   icons: {
     icon: "/logo.svg",
