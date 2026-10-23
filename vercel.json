@@ -6,6 +6,15 @@
     },
     "app/api/webhooks/meta/route.ts": {
       "maxDuration": 60
+    },
+    "app/api/webhooks/whatsapp/[key]/route.ts": {
+      "maxDuration": 60
+    },
+    "app/api/whatsapp/route.ts": {
+      "maxDuration": 60
+    },
+    "app/api/whatsapp/worker/route.ts": {
+      "maxDuration": 60
     }
   }
 }

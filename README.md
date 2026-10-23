@@ -58,6 +58,31 @@ Para ativar cada empresa: autorizar conta profissional/app Meta e permissões ne
 
 Não há autorização nem implementação para disparos a seguidores ou envio de mensagens. Respostas, templates, janela de atendimento e conversões da Meta precisam ser implementados/validados antes de habilitar envio. Gastos de anúncios continuam manuais.
 
+## WhatsApp oficial (coexistência)
+
+Número continua no aplicativo WhatsApp Business e passa a funcionar também no CRM, pela API oficial da Meta (Cloud API) com coexistência via EasyCoexistence. Sem WhatsApp Web, bibliotecas não oficiais ou envio em massa.
+
+**Fluxo**
+
+1. Meta → `POST /api/webhooks/whatsapp/<WHATSAPP_WEBHOOK_KEY>` → `wa_ingest()` grava o evento deduplicado e responde 200. Falha no banco → 503 e a Meta reenvia.
+2. `crm_private.wa_run_events()` processa no banco (pg_cron `viestro-wa-process-events` a cada minuto e logo após cada webhook): contatos, conversas, mensagens, ecos do app (`smb_message_echoes`), status, histórico de até 6 meses (`history`) e nomes da agenda (`smb_app_state_sync`, só para quem já conversa).
+3. Operador responde pelo CRM → `crm_wa_send_text`/`crm_wa_send_template` validam empresa, janela de 24h, consentimento e enfileiram em `wa_outbox` → backend envia para a Cloud API com o token do número guardado no Supabase Vault.
+
+**Segurança**
+
+- A Meta assina as entregas com o segredo do app do provedor, que não é compartilhado; a autenticação é a chave longa no caminho da URL (recomendação oficial do provedor) + mapeamento `phone_number_id → empresa` feito no servidor. Chave errada → 404.
+- Leitura pelo app: RLS por `company_id`. Escrita: só pelas funções do banco. `wa_webhook_events`, `wa_outbox` e a coluna do cofre não são visíveis para usuários.
+- Token só segue para `https://graph.facebook.com/vNN.N`. Logs não registram conteúdo nem token.
+- Execução interrompida sem resposta da Meta não é reenviada (evita mensagem duplicada ao cliente); fica como "Resultado desconhecido".
+- Texto livre só dentro da janela de 24h; template de marketing exige consentimento com evidência, respeita descadastro (SAIR/PARAR/STOP/CANCELAR) e limite de 1 por contato a cada 24h.
+- Lead automático desligado por padrão (`settings.wa_auto_lead`); o operador cria o lead pela conversa.
+
+**Variáveis (Vercel, somente servidor):** `WHATSAPP_WEBHOOK_KEY` (32+ caracteres aleatórios), `WHATSAPP_VERIFY_TOKEN` (32+), `WHATSAPP_GRAPH_BASE` (opcional, padrão v26.0), além de `SUPABASE_SECRET_KEY` e `CRON_SECRET` já existentes.
+
+**Ativar um número (somente com autorização):** conectar pelo EasyCoexistence com QR code (nunca código SMS); salvar o token no Vault do Supabase com nome `wa_token_<phone_number_id>`; cadastrar `crm_channels` (provider `whatsapp`, `external_id` = phone_number_id) e `wa_accounts` com o id do segredo; apontar o destino do webhook no provedor em até 24h para receber o histórico.
+
+**Testes:** `npm test` (normalização, chave, classificação de erros); `tests/whatsapp_database.sql` e `tests/whatsapp_isolamento.sql` (em transação com rollback; nunca em produção com comandos de exclusão).
+
 ## Fila e execução
 
 - Eventos são persistidos antes do ACK. Chave única por empresa/evento deduplica reentregas.
