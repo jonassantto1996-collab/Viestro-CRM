@@ -65,6 +65,9 @@ export function waDemo() {
     conv('d4', 'Ana Beatriz', '+5594981110004', {unread_count: 1}, thread('d4', [
       ['inbound', 'api_inbound', 'Vocês abrem domingo?', 40 * min],
     ])),
+    conv('d6', '', '+5594981110006', {unread_count: 1}, thread('d6', [
+      ['inbound', 'api_inbound', 'Boa tarde, vocês fazem entrega de ração?', 3 * min],
+    ])),
     conv('d5', 'Pedro Alves', '+5594981110005', {category: 'Banho e tosa', status: 'resolved'}, thread('d5', [
       ['inbound', 'history_sync', 'Quero agendar a tosa do Thor', 30 * hour],
       ['outbound', 'history_sync', 'Agendado para sábado às 9h! 🐾', 29.5 * hour],

@@ -262,3 +262,86 @@ body {
 .password-input button{position:absolute;right:4px;top:50%;transform:translateY(-50%);width:38px;height:38px;display:inline-flex;align-items:center;justify-content:center;border-radius:6px;color:#8fa6c4}
 .password-input button:hover{color:#dbe7f6;background:#14243a}
 .password-input button:focus-visible{outline:2px solid #4da3ff;outline-offset:1px}
+
+/* ===== Movimento: cards clicáveis, entrada suave e foco no funil ===== */
+@keyframes crm-rise{from{opacity:0;transform:translateY(10px)}to{opacity:1;transform:none}}
+@keyframes crm-fade{from{opacity:0}to{opacity:1}}
+.stat-grid>.stat-card,.chart-grid>.panel,.lower-grid>.panel,.kanban-column,.automation-grid>.panel,.wa-inbox>.panel{animation:crm-rise .5s cubic-bezier(.2,.8,.2,1) backwards}
+.stat-grid>.stat-card:nth-child(2),.kanban-column:nth-child(2),.automation-grid>.panel:nth-child(2),.wa-inbox>.panel:nth-child(2){animation-delay:.06s}
+.stat-grid>.stat-card:nth-child(3),.kanban-column:nth-child(3),.wa-inbox>.panel:nth-child(3){animation-delay:.12s}
+.stat-grid>.stat-card:nth-child(4),.kanban-column:nth-child(4){animation-delay:.18s}
+.kanban-column:nth-child(5){animation-delay:.22s}.kanban-column:nth-child(n+6){animation-delay:.26s}
+.chart-grid>.panel{animation-delay:.14s}.lower-grid>.panel{animation-delay:.22s}
+.stat-card{transition:transform .25s cubic-bezier(.2,.8,.2,1),border-color .25s,box-shadow .25s}
+.stat-card:not(.is-link):hover{border-color:#30445f}
+.stat-card.is-link{display:block;width:100%;text-align:left;color:inherit;font:inherit;cursor:pointer}
+.stat-card.is-link::after{content:"";position:absolute;inset:0;border-radius:inherit;background:radial-gradient(120% 90% at 100% 0%,#4da3ff22,transparent 62%);opacity:0;transition:opacity .3s;pointer-events:none}
+.stat-card.is-link:hover,.stat-card.is-link:focus-visible{transform:translateY(-3px);border-color:#3d6491;box-shadow:0 18px 34px -18px #000,0 0 0 1px #4da3ff1c}
+.stat-card.is-link:hover::after,.stat-card.is-link:focus-visible::after{opacity:1}
+.stat-card.is-link:active{transform:translateY(-1px);transition-duration:.08s}
+.stat-card.is-link:hover .stat-label svg{color:#7cc0ff}
+.stat-card.is-link:focus-visible{outline:2px solid #70b9ff;outline-offset:2px}
+.stat-go{margin-left:auto;display:inline-flex;align-self:flex-end;color:#6fb4ff;opacity:0;transform:translate(-4px,4px);transition:opacity .25s,transform .25s;flex:none}
+.stat-card.is-link:hover .stat-go,.stat-card.is-link:focus-visible .stat-go{opacity:1;transform:none}
+@media (hover:none){.stat-go{opacity:.75;transform:none}}
+.count-up{font-variant-numeric:tabular-nums}
+.funnel-item{border-radius:6px;transition:background .2s}
+.funnel-item:hover>div:first-child span{color:#e3ecf8}
+.funnel-item:hover .funnel-track span{filter:brightness(1.2)}
+.lead-card{transition:border-color .2s,transform .2s cubic-bezier(.2,.8,.2,1),box-shadow .2s}
+.lead-card:hover{transform:translateY(-2px);box-shadow:0 12px 24px -14px #000}
+.kanban-column{transition:border-color .35s,box-shadow .35s}
+.kanban-column.is-focus{border-color:#3f7cc0;box-shadow:0 0 0 3px #4da3ff26,0 14px 30px -18px #000}
+.automation-grid>.panel{transition:border-color .25s,transform .25s cubic-bezier(.2,.8,.2,1),box-shadow .25s}
+.automation-grid>.panel:hover{border-color:#34507a;transform:translateY(-2px);box-shadow:0 16px 30px -20px #000}
+.channel-open{margin-top:14px}
+@media (prefers-reduced-motion:reduce){
+  .stat-grid>.stat-card,.chart-grid>.panel,.lower-grid>.panel,.kanban-column,.automation-grid>.panel,.wa-inbox>.panel{animation:none}
+  .stat-card.is-link:hover,.stat-card.is-link:focus-visible,.lead-card:hover,.automation-grid>.panel:hover{transform:none}
+}
+
+/* ===== WhatsApp · acabamento visual ===== */
+.wa-avatar{position:relative;transition:transform .2s}
+.wa-avatar.t1{background:#1d3a5f;color:#9ccdff}.wa-avatar.t2{background:#2a2f5e;color:#b9beff}
+.wa-avatar.t3{background:#382a55;color:#d2b8ff}.wa-avatar.t4{background:#1b3d37;color:#86e3c8}
+.wa-avatar.t5{background:#3d321c;color:#f2cc82}.wa-avatar.t6{background:#40243a;color:#f3a9c6}
+.wa-avatar.t7{background:#163a49;color:#86daf4}.wa-avatar.t8{background:#2c391f;color:#c4e391}
+.wa-avatar{box-shadow:inset 0 0 0 1px #ffffff12}
+.wa-avatar.lg{box-shadow:inset 0 0 0 1px #ffffff14,0 0 0 4px #0f1b2c,0 0 0 5px #263a57}
+.wa-list-title{display:flex;align-items:center;gap:8px;padding:2px 2px 0}
+.wa-list-title h2{font-size:16px;color:#e6eef9}
+.wa-list-title span{font-size:11px;color:#9db2ce;border:1px solid #2d405b;border-radius:999px;padding:1px 8px}
+.wa-search{transition:border-color .2s,box-shadow .2s;background:#0b1727}
+.wa-search:focus-within{border-color:#4da3ff;box-shadow:0 0 0 3px #4da3ff18}
+.wa-item{transition:background .2s}
+.wa-item:hover .wa-avatar{transform:scale(1.05)}
+.wa-item.active{background:linear-gradient(90deg,#16304f,#12243b 70%)}
+.wa-item.unread{background:#0f2036}
+.wa-item.unread.active{background:linear-gradient(90deg,#16304f,#12243b 70%)}
+.wa-item.unread .wa-item-top strong{color:#fff;font-weight:650}
+.wa-window{flex:none}
+.wa-you{display:inline-flex;align-items:center;gap:3px;margin-right:4px;color:#6fb4ff;font-weight:500}
+.wa-you svg{flex:none}
+.wa-unread{box-shadow:0 0 0 3px #4da3ff1f;animation:crm-fade .3s}
+.wa-placeholder-icon{width:68px;height:68px;border-radius:50%;display:grid;place-items:center;color:#6fb4ff;background:radial-gradient(circle,#1a3a61,#0f2440 70%);box-shadow:0 0 0 1px #2a4e7a,0 0 40px -6px #4da3ff55;margin-bottom:6px}
+.wa-hints{list-style:none;padding:0;margin:14px 0 0;display:flex;flex-wrap:wrap;justify-content:center;gap:8px}
+.wa-hints li{display:inline-flex;align-items:center;gap:6px;font-size:12px;color:#a9bdd7;border:1px solid #243650;background:#0e1b2d;border-radius:999px;padding:5px 11px}
+.wa-hints svg{color:#6fb4ff}
+.wa-thread-head{background:linear-gradient(180deg,#101e31,#0e1a2a)}
+.wa-messages{animation:crm-fade .3s ease}
+.wa-history-note{align-self:center;display:inline-flex;align-items:center;gap:6px;font-size:11.5px;color:#8ea6c4;background:#0f1d31;border:1px dashed #2a4161;border-radius:999px;padding:4px 12px;margin:2px 0 6px;text-align:center}
+.wa-day{position:sticky;top:-10px;z-index:1}
+.wa-day span{backdrop-filter:blur(6px);background:#13223ae6;box-shadow:0 4px 12px -6px #000}
+.wa-msg{animation:crm-msg .28s cubic-bezier(.2,.8,.2,1) backwards}
+@keyframes crm-msg{from{opacity:0;transform:translateY(6px) scale(.98)}to{opacity:1;transform:none}}
+.wa-msg.outbound{background:linear-gradient(160deg,#1c4675,#173a63);border-color:#2a5a8e}
+.wa-msg.inbound{background:#15243a}
+.wa-composer textarea{transition:border-color .2s,box-shadow .2s}
+.wa-composer .button.primary:not(:disabled):hover{box-shadow:0 6px 18px -6px #4da3ff99}
+.wa-box{transition:border-color .2s}
+.wa-box:hover{border-color:#2b4466}
+@media (prefers-reduced-motion:reduce){.wa-msg,.wa-messages,.wa-unread{animation:none}.wa-item:hover .wa-avatar{transform:none}}
+@keyframes crm-focus{0%,100%{box-shadow:0 0 0 3px #4da3ff26,0 14px 30px -18px #000}50%{box-shadow:0 0 0 6px #4da3ff33,0 14px 30px -18px #000}}
+.kanban-column.is-focus{animation:crm-focus 1.2s ease-in-out 2}
+@media (prefers-reduced-motion:reduce){.kanban-column.is-focus{animation:none}}
+.wa-row{display:flex;flex-direction:column}

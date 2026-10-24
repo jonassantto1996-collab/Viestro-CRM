@@ -2,7 +2,7 @@
 import {useCallback, useEffect, useMemo, useRef, useState} from 'react';
 import {
   AlertTriangle, ArrowLeft, Check, CheckCheck, Clock, FileText, Info, Lock, MessageCircle, Phone,
-  Search, Send, ShieldCheck, Smartphone, UserPlus, Users,
+  Search, Send, ShieldCheck, Smartphone, User, UserPlus, Users,
 } from 'lucide-react';
 import {Select, SelectTrigger, SelectValue, SelectContent, SelectItem} from '@/components/ui/select';
 import {Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription} from '@/components/ui/dialog';
@@ -36,15 +36,34 @@ const ERRORS: Record<string, string> = {
   '130429': 'Limite de envio da Meta atingido. Tente em alguns minutos.',
   '190': 'Token de acesso expirado. Reconecte o número.',
 };
-const SOURCE: Record<string, string> = {crm: 'Pelo CRM', app_echo: 'Pelo celular', history_sync: 'Histórico importado', api_inbound: ''};
+const SOURCE: Record<string, string> = {crm: 'Pelo CRM', app_echo: 'Pelo celular', history_sync: '', api_inbound: ''};
 
-const initials = (s: string) => s.split(' ').filter(Boolean).map(p => p[0]).slice(0, 2).join('').toUpperCase() || '?';
-const contactName = (c: any) => c?.contact?.name || c?.contact?.phone_e164 || 'Contato';
+const initials = (s: string) => s.split(' ').filter(w => /^\p{L}/u.test(w)).map(p => p[0]).slice(0, 2).join('').toUpperCase();
+const contactName = (c: any) => c?.contact?.name || phone(c?.contact?.phone_e164) || 'Contato';
 function phone(p?: string) {
   const d = (p || '').replace(/\D/g, '');
-  if (d.startsWith('55') && d.length >= 12) return `+55 (${d.slice(2, 4)}) ${d.slice(4, d.length - 4)}-${d.slice(-4)}`;
-  return p || '';
+  if (!d) return p || '';
+  if (d.startsWith('55') && (d.length === 12 || d.length === 13)) return `+55 (${d.slice(2, 4)}) ${d.slice(4, d.length - 4)}-${d.slice(-4)}`;
+  if (d.startsWith('1') && d.length === 11) return `+1 (${d.slice(1, 4)}) ${d.slice(4, 7)}-${d.slice(7)}`;
+  return d.length > 8 ? `+${d.slice(0, 2)} ${d.slice(2, 6)} ${d.slice(6)}` : `+${d}`;
 }
+// Cor estável por contato (mesma pessoa, mesma cor em todas as telas)
+const TONES = ['t1', 't2', 't3', 't4', 't5', 't6', 't7', 't8'];
+function tone(key: string) {
+  let h = 0;
+  for (const ch of key) h = (h * 31 + ch.charCodeAt(0)) >>> 0;
+  return TONES[h % TONES.length];
+}
+function Avatar({c, size = ''}: {c: any; size?: string}) {
+  const name = c?.contact?.name || '';
+  const ini = initials(name);
+  return (
+    <span className={`avatar wa-avatar ${tone(c?.contact?.phone_e164 || c?.id || name)} ${size}`} aria-hidden="true">
+      {ini || <User size={size === 'lg' ? 24 : 17} />}
+    </span>
+  );
+}
+const lastWasMine = (c: any) => Boolean(c.last_outbound_at && (!c.last_inbound_at || c.last_outbound_at >= c.last_inbound_at));
 function when(iso?: string | null) {
   if (!iso) return '';
   const d = new Date(iso);
@@ -258,10 +277,10 @@ export default function WhatsAppInbox({demo, members, me, onOpenLead, onLeadCrea
   const details = selected && (
     <div className="wa-details-body">
       <div className="wa-contact-card">
-        <span className="avatar wa-avatar lg">{initials(contactName(selected))}</span>
+        <Avatar c={selected} size="lg" />
         <strong>{contactName(selected)}</strong>
         <a href={`https://wa.me/${(selected.contact?.phone_e164 || '').replace(/\D/g, '')}`} target="_blank" rel="noreferrer">
-          <Phone size={13} /> {phone(selected.contact?.phone_e164)}
+          <Phone size={13} /> {selected.contact?.name ? phone(selected.contact?.phone_e164) : 'Abrir no WhatsApp'}
         </a>
         <small>Recebido em {selected.account?.display_name || phone(selected.account?.phone_e164)}</small>
       </div>
@@ -338,6 +357,10 @@ export default function WhatsAppInbox({demo, members, me, onOpenLead, onLeadCrea
       {/* Lista */}
       <section className="panel wa-list" aria-label="Conversas">
         <div className="wa-list-head">
+          <div className="wa-list-title">
+            <h2>Conversas</h2>
+            {conversations.length > 0 && <span>{conversations.length}</span>}
+          </div>
           <div className="search wa-search">
             <Search size={15} />
             <input placeholder="Buscar nome ou telefone" value={query} onChange={e => setQuery(e.target.value)} aria-label="Buscar conversas" />
@@ -361,13 +384,16 @@ export default function WhatsAppInbox({demo, members, me, onOpenLead, onLeadCrea
           )}
           {visible.map(c => (
             <button key={c.id} className={'wa-item' + (c.id === selectedId ? ' active' : '') + (c.unread_count ? ' unread' : '')} onClick={() => openConversation(c)}>
-              <span className="avatar wa-avatar">{initials(contactName(c))}</span>
+              <Avatar c={c} />
               <span className="wa-item-main">
                 <span className="wa-item-top">
                   <strong>{contactName(c)}</strong>
                   <time>{when(c.last_message_at)}</time>
                 </span>
-                <span className="wa-item-preview">{c.last_message_preview || 'Sem mensagens'}</span>
+                <span className="wa-item-preview">
+                  {c.last_message_preview && lastWasMine(c) && <span className="wa-you"><CheckCheck size={13} />Você:</span>}
+                  {c.last_message_preview || 'Sem mensagens'}
+                </span>
                 <span className="wa-item-tags">
                   {awaiting(c) && c.status !== 'resolved' && <span className="wa-tag awaiting">Aguardando resposta</span>}
                   {c.status === 'pending' && <span className="wa-tag">Pendente</span>}
@@ -386,31 +412,39 @@ export default function WhatsAppInbox({demo, members, me, onOpenLead, onLeadCrea
       <section className="panel wa-thread" aria-label="Conversa">
         {!selected ? (
           <div className="wa-placeholder">
-            <MessageCircle size={34} />
+            <span className="wa-placeholder-icon"><MessageCircle size={30} /></span>
             <h2>Selecione uma conversa</h2>
             <p>Responda pelo CRM ou pelo celular: tudo fica registrado no mesmo histórico.</p>
+            <ul className="wa-hints">
+              <li><Send size={13} /> Resposta pelo CRM</li>
+              <li><Smartphone size={13} /> Celular sincronizado</li>
+              <li><Clock size={13} /> Janela de 24h visível</li>
+            </ul>
           </div>
         ) : (
           <>
             <header className="wa-thread-head">
               <button className="wa-back" onClick={() => setSelectedId(null)} aria-label="Voltar para a lista"><ArrowLeft size={18} /></button>
-              <span className="avatar wa-avatar">{initials(contactName(selected))}</span>
+              <Avatar c={selected} />
               <div className="wa-thread-title">
                 <strong>{contactName(selected)}</strong>
-                <small>{phone(selected.contact?.phone_e164)} · {STATUS[selected.status]}{selected.category ? ` · ${selected.category}` : ''}</small>
+                <small>{selected.contact?.name ? `${phone(selected.contact?.phone_e164)} · ` : ''}{STATUS[selected.status]}{selected.category ? ` · ${selected.category}` : ''}</small>
               </div>
-              <span className={'wa-window ' + (windowText ? 'open' : 'closed')}>
-                <Clock size={13} /> {windowText ? `Janela aberta · ${windowText}` : 'Janela de 24h fechada'}
+              <span className={'wa-window ' + (windowText ? 'open' : 'closed')} title="Janela de 24h da Meta para responder sem template">
+                <Clock size={13} /> {windowText ? `Aberta · ${windowText}` : 'Janela fechada'}
               </span>
               <button className="button secondary wa-details-btn" onClick={() => setDetailsOpen(true)}><Info size={15} /> Detalhes</button>
             </header>
 
-            <div className="wa-messages">
+            <div className="wa-messages" key={selected.id}>
+              {thread.some((m: any) => m.source === 'history_sync') && (
+                <div className="wa-history-note"><Smartphone size={13} /> Conversas anteriores importadas do WhatsApp do celular</div>
+              )}
               {thread.map((m: any) => {
                 const d = dayLabel(m.at);
                 const sep = d !== lastDay ? (lastDay = d) : null;
                 return (
-                  <div key={m.id}>
+                  <div key={m.id} className="wa-row">
                     {sep && <div className="wa-day"><span>{sep}</span></div>}
                     <div className={'wa-msg ' + m.direction + (m.message_status === 'failed' ? ' failed' : '')}>
                       {m.template_name && <span className="wa-msg-tpl"><FileText size={12} /> Template · {m.template_name}</span>}
