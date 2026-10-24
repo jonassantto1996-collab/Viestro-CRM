@@ -57,9 +57,14 @@ export async function POST(req: Request, {params}: Ctx) {
       const {error} = await db.rpc('wa_ingest', {p_events: events.slice(i, i + 1000)});
       if (error) throw error;
     }
-  } catch {
+  } catch (err) {
     // 503 faz a Meta reenviar; a deduplicação no banco impede duplicidade.
-    console.error('WhatsApp: evento não persistido; a Meta vai reenviar', {count: events.length});
+    // Só o código e a mensagem técnica (sem dígitos) vão para o log: nada de conteúdo ou telefone.
+    const e = err as {code?: string; message?: string; status?: number};
+    console.error('WhatsApp: evento não persistido; a Meta vai reenviar', {
+      count: events.length, code: e?.code, status: e?.status,
+      reason: String(e?.message || '').replace(/\d+/g, '#').slice(0, 160),
+    });
     return reply({error: 'Indisponível'}, 503);
   }
   after(drainAll);
