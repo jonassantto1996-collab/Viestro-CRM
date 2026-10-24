@@ -77,6 +77,8 @@ Número continua no aplicativo WhatsApp Business e passa a funcionar também no 
 - Texto livre só dentro da janela de 24h; template de marketing exige consentimento com evidência, respeita descadastro (SAIR/PARAR/STOP/CANCELAR) e limite de 1 por contato a cada 24h.
 - Lead automático desligado por padrão (`settings.wa_auto_lead`); o operador cria o lead pela conversa.
 
+**Caixa de entrada (menu WhatsApp):** lista com filtros (não lidas, aguardando resposta, minhas, sem responsável, resolvidas) e busca; conversa com origem de cada mensagem (cliente, CRM, celular, histórico) e status de entrega; resposta livre só com a janela de 24h aberta, senão envio de template; status, tipo de atendimento, responsável, criação de lead com um clique e registro de autorização para promoções. Atualiza a cada 10 s (conversa aberta a cada 5 s). Sem login, mostra uma demonstração de pet shop com dados fictícios.
+
 **Variáveis (Vercel, somente servidor):** `WHATSAPP_WEBHOOK_KEY` (32+ caracteres aleatórios), `WHATSAPP_VERIFY_TOKEN` (32+), `WHATSAPP_GRAPH_BASE` (opcional, padrão v26.0), além de `SUPABASE_SECRET_KEY` e `CRON_SECRET` já existentes.
 
 **Ativar um número (somente com autorização):** conectar pelo EasyCoexistence com QR code (nunca código SMS); salvar o token no Vault do Supabase com nome `wa_token_<phone_number_id>`; cadastrar `crm_channels` (provider `whatsapp`, `external_id` = phone_number_id) e `wa_accounts` com o id do segredo; apontar o destino do webhook no provedor em até 24h para receber o histórico.

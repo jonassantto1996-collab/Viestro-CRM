@@ -41,6 +41,12 @@ export async function GET(req: Request) {
       return reply({messages});
     }
 
+    if (view === 'summary') {
+      const {data, error} = await db.from('wa_conversations').select('unread_count').gt('unread_count', 0).limit(1000);
+      if (error) throw error;
+      return reply({unread: (data || []).reduce((s, c) => s + (c.unread_count || 0), 0)});
+    }
+
     if (view === 'templates') {
       const {data, error} = await db.from('wa_templates')
         .select('id,account_id,name,language,category,status,components').eq('status', 'APPROVED').order('name');
