@@ -1,7 +1,7 @@
 import {after} from 'next/server';
 import {sessionClient} from '@/lib/supabase/server';
 import {reply, body, sameOrigin} from '@/lib/http';
-import {drainOutbox} from '@/lib/whatsapp-worker';
+import {drainOutbox, syncTemplates} from '@/lib/whatsapp-worker';
 
 export const dynamic = 'force-dynamic';
 
@@ -48,8 +48,14 @@ export async function GET(req: Request) {
     }
 
     if (view === 'templates') {
+      if (p.get('sync') === '1' && process.env.SUPABASE_SECRET_KEY) {
+        const {data: member} = await db.from('crm_members').select('company_id').eq('user_id', user.id).maybeSingle();
+        if (member?.company_id) {
+          try { await syncTemplates(member.company_id); } catch { console.error('WhatsApp: sincronização de templates adiada'); }
+        }
+      }
       const {data, error} = await db.from('wa_templates')
-        .select('id,account_id,name,language,category,status,components').eq('status', 'APPROVED').order('name');
+        .select('id,account_id,name,language,category,status,components').neq('status', 'DELETED').order('name');
       if (error) throw error;
       return reply({templates: data});
     }

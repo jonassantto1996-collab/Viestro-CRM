@@ -52,6 +52,11 @@ const ERRORS: Record<string, string> = {
   '131026': 'Mensagem não entregue (número sem WhatsApp ou bloqueado).',
   '130429': 'Limite de envio da Meta atingido. Tente em alguns minutos.',
   '190': 'Token de acesso expirado. Reconecte o número.',
+  '131042': 'Falta a forma de pagamento na conta do WhatsApp (Gerenciador do WhatsApp > Faturamento).',
+  '132000': 'A quantidade de variáveis não confere com o template.',
+  '132001': 'Template inexistente ou ainda não aprovado pela Meta.',
+  '132015': 'Template pausado pela Meta por baixa qualidade.',
+  '132016': 'Template desativado pela Meta.',
 };
 const SOURCE: Record<string, string> = {crm: 'Pelo CRM', app_echo: 'Pelo celular', history_sync: '', api_inbound: ''};
 
@@ -181,7 +186,7 @@ export default function WhatsAppInbox({demo, members, me, onOpenLead, onLeadCrea
   useEffect(() => {
     if (demo) return;
     loadConversations();
-    call(undefined, '?view=templates').then(d => setTemplates(d.templates || [])).catch(() => {});
+    call(undefined, '?view=templates&sync=1').then(d => setTemplates(d.templates || [])).catch(() => {});
     const t = setInterval(() => { if (document.visibilityState === 'visible') loadConversations(); }, 10_000);
     return () => clearInterval(t);
   }, [demo, loadConversations]);
@@ -521,6 +526,7 @@ export default function WhatsAppInbox({demo, members, me, onOpenLead, onLeadCrea
       </Sheet>
 
       <TemplateDialog
+        onRefresh={demo ? undefined : () => call(undefined, '?view=templates&sync=1').then(d => setTemplates(d.templates || [])).catch(() => {})}
         open={tplOpen}
         onOpenChange={setTplOpen}
         templates={accountTemplates}
@@ -545,13 +551,18 @@ export default function WhatsAppInbox({demo, members, me, onOpenLead, onLeadCrea
   );
 }
 
-function TemplateDialog({open, onOpenChange, templates, contact, demo, onSent}: any) {
+const TPL_STATUS: Record<string, string> = {PENDING: 'em análise pela Meta', REJECTED: 'recusado pela Meta', PAUSED: 'pausado pela Meta', DISABLED: 'desativado pela Meta', IN_APPEAL: 'em recurso na Meta', LIMIT_EXCEEDED: 'limite atingido', ARCHIVED: 'arquivado', PENDING_DELETION: 'sendo removido'};
+
+function TemplateDialog({open, onOpenChange, templates: all, contact, demo, onSent, onRefresh}: any) {
+  const templates = all.filter((x: any) => x.status === 'APPROVED');
+  const others = all.filter((x: any) => x.status !== 'APPROVED');
+  useEffect(() => { if (open) onRefresh?.(); }, [open]); // eslint-disable-line react-hooks/exhaustive-deps
   const [id, setId] = useState('');
   const [params, setParams] = useState<string[]>([]);
   const [busy, setBusy] = useState(false);
   const t = templates.find((x: any) => x.id === id);
   const n = t ? tplVars(t) : 0;
-  useEffect(() => { if (open) { setId(templates[0]?.id || ''); } }, [open]); // eslint-disable-line react-hooks/exhaustive-deps
+  useEffect(() => { if (open && !templates.some((x: any) => x.id === id)) setId(templates[0]?.id || ''); }, [open, templates.length]); // eslint-disable-line react-hooks/exhaustive-deps
   useEffect(() => {
     const first = (contact?.contact?.name || '').split(' ')[0];
     setParams(Array.from({length: n}, (_, i) => (i === 0 ? first : '')));
@@ -582,8 +593,15 @@ function TemplateDialog({open, onOpenChange, templates, contact, demo, onSent}: 
           <DialogTitle>Enviar template aprovado</DialogTitle>
           <DialogDescription>Templates são mensagens aprovadas pela Meta. São a única forma de iniciar ou retomar uma conversa após 24h. Promoções exigem autorização registrada do cliente.</DialogDescription>
         </DialogHeader>
+        {others.length > 0 && (
+          <ul className="wa-tpl-others">
+            {others.map((x: any) => <li key={x.id}><FileText size={13} /> <strong>{x.name}</strong> <span className={x.status === 'PENDING' ? 'pending' : 'bad'}>{TPL_STATUS[x.status] || x.status.toLowerCase()}</span></li>)}
+          </ul>
+        )}
         {!templates.length ? (
-          <div className="notice">Nenhum template aprovado para este número ainda. Eles são criados e aprovados na Meta e aparecem aqui automaticamente.</div>
+          <div className="notice">{others.some((x: any) => x.status === 'PENDING')
+            ? 'Os templates acima estão em análise na Meta (normalmente minutos, até 24h). Assim que forem aprovados, aparecem aqui para envio.'
+            : 'Nenhum template aprovado para este número ainda. Eles são criados e aprovados na Meta e aparecem aqui automaticamente.'}</div>
         ) : (
           <>
             <label className="field">

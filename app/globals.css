@@ -407,3 +407,9 @@ body {
   .fin-actions{width:100%}.fin-actions .button{flex:1}
 }
 @media (max-width:600px){.fin-stat .stat-value{font-size:20px;letter-spacing:-.4px;white-space:nowrap}.fin-stats>.stat-card:last-child .stat-value{font-size:24px}}
+.wa-tpl-others{list-style:none;margin:0;padding:0;display:flex;flex-direction:column;gap:6px}
+.wa-tpl-others li{display:flex;align-items:center;gap:7px;font-size:13px;color:#a9bdd7;border:1px solid #213350;background:#0c1828;border-radius:8px;padding:8px 10px}
+.wa-tpl-others li svg{color:#6fb4ff;flex:none}
+.wa-tpl-others strong{font-weight:550;color:#dbe6f5}
+.wa-tpl-others span{margin-left:auto;font-size:12px}
+.wa-tpl-others span.pending{color:#f0c674}.wa-tpl-others span.bad{color:#f0a3a3}

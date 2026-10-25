@@ -82,6 +82,8 @@ export function waDemo() {
         components: [{type: 'BODY', text: 'Olá {{1}}! Lembrete do seu horário no Pet Shop: {{2}}. Responda esta mensagem se precisar remarcar.'}]},
       {id: 't2', account_id: 'acc-demo', name: 'retorno_atendimento', language: 'pt_BR', category: 'UTILITY', status: 'APPROVED',
         components: [{type: 'BODY', text: 'Olá {{1}}! Passando para saber se ficou alguma dúvida sobre seu atendimento. Estamos à disposição.'}]},
+      {id: 't4', account_id: 'acc-demo', name: 'pesquisa_satisfacao', language: 'pt_BR', category: 'UTILITY', status: 'PENDING',
+        components: [{type: 'BODY', text: 'Olá {{1}}! Como foi o atendimento do seu pet? Sua opinião nos ajuda a melhorar.'}]},
       {id: 't3', account_id: 'acc-demo', name: 'promo_banho', language: 'pt_BR', category: 'MARKETING', status: 'APPROVED',
         components: [{type: 'BODY', text: 'Olá {{1}}! Esta semana o banho tem 20% de desconto. Quer garantir um horário?'}]},
     ],

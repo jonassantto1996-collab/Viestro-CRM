@@ -64,3 +64,67 @@ export async function drainAll() {
   try { await drainEvents(); } catch { console.error('WhatsApp: eventos pendentes para a próxima rodada'); }
   try { await drainOutbox(); } catch { console.error('WhatsApp: envios pendentes para a próxima rodada'); }
 }
+
+const TPL_NAME = /^[a-z0-9_]{1,512}$/;
+const TPL_LANG = /^[a-z]{2,3}(_[A-Z]{2})?$/;
+const TPL_CATEGORY = new Set(['MARKETING', 'UTILITY', 'AUTHENTICATION']);
+const TPL_STATUS = new Set(['APPROVED', 'PENDING', 'REJECTED', 'PAUSED', 'DISABLED', 'IN_APPEAL', 'PENDING_DELETION', 'DELETED', 'LIMIT_EXCEEDED', 'ARCHIVED']);
+
+/**
+ * Traz da Meta os templates de cada número da empresa e atualiza wa_templates.
+ * A Meta não avisa por webhook quando um template é aprovado; por isso a caixa de entrada
+ * pede a sincronização ao abrir. Intervalo mínimo de 60 s por número. Token nunca vai para log.
+ */
+export async function syncTemplates(companyId: string) {
+  const db = serviceClient();
+  const base = graphBase(process.env.WHATSAPP_GRAPH_BASE);
+  const {data: accounts, error} = await db.from('wa_accounts').select('id,waba_id')
+    .eq('company_id', companyId).neq('connection_status', 'disconnected');
+  if (error) throw error;
+  let synced = 0;
+  for (const acc of accounts || []) {
+    const {data: last} = await db.from('wa_templates').select('last_synced_at')
+      .eq('account_id', acc.id).order('last_synced_at', {ascending: false, nullsFirst: false}).limit(1).maybeSingle();
+    if (last?.last_synced_at && Date.now() - new Date(last.last_synced_at).getTime() < 60_000) continue;
+    const t = await db.rpc('wa_account_token', {p_account: acc.id});
+    const token = t.error ? null : (t.data as string | null);
+    if (!token) continue;
+
+    const found: Record<string, unknown>[] = [];
+    let url: string | null = `${base}/${acc.waba_id}/message_templates?fields=id,name,status,category,language,components&limit=200`;
+    let complete = true;
+    for (let page = 0; url && page < 10; page++) {
+      const res: Response = await fetch(url, {headers: {Authorization: `Bearer ${token}`}, signal: AbortSignal.timeout(15000), cache: 'no-store'});
+      if (!res.ok) { complete = false; console.error('WhatsApp: templates indisponíveis', {status: res.status}); break; }
+      const json = await res.json();
+      for (const t of json?.data || []) {
+        const name = String(t?.name || '');
+        const language = String(t?.language || '');
+        const category = String(t?.category || '').toUpperCase();
+        const status = String(t?.status || '').toUpperCase();
+        const components = Array.isArray(t?.components) ? t.components : [];
+        if (!TPL_NAME.test(name) || !TPL_LANG.test(language) || !TPL_CATEGORY.has(category) || !TPL_STATUS.has(status)) continue;
+        if (JSON.stringify(components).length > 20000) continue;
+        found.push({company_id: companyId, account_id: acc.id, external_template_id: String(t.id || '').slice(0, 100) || null,
+          name, language, category, status, components, last_synced_at: new Date().toISOString()});
+      }
+      // Só segue a paginação dentro da própria API da Meta (o token vai junto)
+      const next: string | undefined = json?.paging?.next;
+      url = next && next.startsWith(base + '/') ? next : null;
+      if (next && !url) complete = false;
+    }
+    if (found.length) {
+      const {error: e} = await db.from('wa_templates').upsert(found, {onConflict: 'account_id,name,language'});
+      if (e) throw e;
+    }
+    if (complete) {
+      // Removidos na Meta deixam de aparecer para envio
+      const keep = new Set(found.map(f => `${f.name}|${f.language}`));
+      const {data: existing} = await db.from('wa_templates').select('id,name,language,status').eq('account_id', acc.id);
+      const gone = (existing || []).filter(x => !keep.has(`${x.name}|${x.language}`) && x.status !== 'DELETED').map(x => x.id);
+      if (gone.length) await db.from('wa_templates').update({status: 'DELETED', last_synced_at: new Date().toISOString()}).in('id', gone);
+    }
+    synced += found.length;
+  }
+  return {synced};
+}
