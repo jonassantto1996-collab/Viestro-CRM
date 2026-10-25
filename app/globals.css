@@ -274,7 +274,7 @@ body {
 .chart-grid>.panel{animation-delay:.14s}.lower-grid>.panel{animation-delay:.22s}
 .stat-card{transition:transform .25s cubic-bezier(.2,.8,.2,1),border-color .25s,box-shadow .25s}
 .stat-card:not(.is-link):hover{border-color:#30445f}
-.stat-card.is-link{display:block;width:100%;text-align:left;color:inherit;font:inherit;cursor:pointer}
+.stat-card.is-link{display:flex;flex-direction:column;justify-content:flex-start;align-items:stretch;width:100%;text-align:left;color:inherit;font:inherit;cursor:pointer}
 .stat-card.is-link::after{content:"";position:absolute;inset:0;border-radius:inherit;background:radial-gradient(120% 90% at 100% 0%,#4da3ff22,transparent 62%);opacity:0;transition:opacity .3s;pointer-events:none}
 .stat-card.is-link:hover,.stat-card.is-link:focus-visible{transform:translateY(-3px);border-color:#3d6491;box-shadow:0 18px 34px -18px #000,0 0 0 1px #4da3ff1c}
 .stat-card.is-link:hover::after,.stat-card.is-link:focus-visible::after{opacity:1}
@@ -345,3 +345,65 @@ body {
 .kanban-column.is-focus{animation:crm-focus 1.2s ease-in-out 2}
 @media (prefers-reduced-motion:reduce){.kanban-column.is-focus{animation:none}}
 .wa-row{display:flex;flex-direction:column}
+
+/* ===== Financeiro ===== */
+.fin-toolbar{display:flex;align-items:center;justify-content:space-between;gap:14px;flex-wrap:wrap;margin-bottom:20px}
+.fin-month{display:flex;align-items:center;gap:6px;background:#0f1b2c;border:1px solid #233149;border-radius:10px;padding:5px}
+.fin-month button{width:34px;height:34px;display:grid;place-items:center;border-radius:7px;color:#9fb3cd;transition:background .2s,color .2s}
+.fin-month button:hover{background:#16263c;color:#e3ecf8}
+.fin-month strong{min-width:170px;text-align:center;font-size:15px;font-weight:600;color:#e6eef9}
+.fin-month .fin-today{width:auto;height:30px;padding:0 10px;font-size:12px;color:#70b4ff;border:1px solid #2a4161;margin-left:4px}
+.fin-actions{display:flex;gap:10px;flex-wrap:wrap}
+.fin-stats{grid-template-columns:repeat(5,minmax(0,1fr))}
+.fin-stat .stat-value{font-size:26px}
+.fin-stat.good .stat-label svg{color:#61d5b1}.fin-stat.warn .stat-label svg{color:#e6ba69}.fin-stat.bad .stat-label svg{color:#f08a8a}
+.fin-stat.featured.good .stat-value{color:#8fe6c9}.fin-stat.featured.bad .stat-value{color:#ffb0b0}
+.fin-stat.selected{border-color:#4da3ff;box-shadow:0 0 0 1px #4da3ff55,0 18px 34px -20px #000}
+.fin-grid{display:grid;grid-template-columns:minmax(0,1.9fr) minmax(300px,1fr);gap:20px;align-items:start;margin-bottom:22px}
+.fin-clear{margin-left:8px;color:#70b4ff;font-size:12px}
+.fin-rows{display:flex;flex-direction:column;border-top:1px solid #1d2c40}
+.fin-row{display:grid;grid-template-columns:58px minmax(0,1fr) 120px 96px 128px;align-items:center;gap:12px;width:100%;text-align:left;padding:13px 22px;border-bottom:1px solid #182739;transition:background .2s}
+.fin-row:hover{background:#122136}
+.fin-row:focus-visible{outline:2px solid #70b9ff;outline-offset:-2px}
+.fin-date{font-size:12px;color:#8ea2bd}
+.fin-desc{min-width:0;display:flex;flex-direction:column;gap:2px}
+.fin-desc strong{font-size:14px;font-weight:550;color:#e3ecf8;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.fin-desc small{display:inline-flex;align-items:center;gap:5px;font-size:12px;color:#7d93b0;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.fin-desc small svg{color:#70b4ff;flex:none}
+.fin-cat{color:#a9c3ff;flex:none}
+.fin-desc small>span:not(.fin-cat){overflow:hidden;text-overflow:ellipsis}
+.fin-method{font-size:12px;color:#9fb3cd}
+.fin-pill{display:inline-flex;font-size:11.5px;padding:3px 9px;border-radius:999px;border:1px solid}
+.fin-pill.paid{background:#123026;color:#7fd3a0;border-color:#1f4a35}
+.fin-pill.pending{background:#352b16;color:#f0c674;border-color:#54431f}
+.fin-value{text-align:right;font-size:14px;font-weight:600;font-variant-numeric:tabular-nums;white-space:nowrap}
+.fin-row.income .fin-value{color:#8fd0ff}.fin-row.expense .fin-value{color:#f2c98a}
+.fin-chart .legend i.exp{background:#e6ba69}
+.fin-chart .chart{height:260px}
+.fin-chart-foot{display:flex;justify-content:space-between;align-items:center;border-top:1px solid #223249;padding:14px 22px;font-size:12px;color:#8298b4}
+.fin-chart-foot b{font-size:17px;font-weight:600}
+.fin-chart-foot b.good{color:#7fe0c0}.fin-chart-foot b.bad{color:#ffaaaa}
+.fin-kind{display:grid;grid-template-columns:1fr 1fr;gap:6px;padding:5px;background:#0a1626;border:1px solid #2a3b54;border-radius:9px}
+.fin-kind button{display:inline-flex;align-items:center;justify-content:center;gap:6px;height:38px;border-radius:6px;font-size:14px;color:#9fb3cd;transition:background .2s,color .2s}
+.fin-kind button.active.income{background:#163153;color:#bfe0ff;box-shadow:inset 0 0 0 1px #2f5a8e}
+.fin-kind button.active.expense{background:#3a2e17;color:#f6d79b;box-shadow:inset 0 0 0 1px #5a4520}
+.fin-money{display:flex;align-items:center;border:1px solid #2a3b54;border-radius:7px;background:#0a1626;transition:border-color .2s,box-shadow .2s}
+.fin-money:focus-within{border-color:#4da3ff;box-shadow:0 0 0 3px #4da3ff15}
+.fin-money em{font-style:normal;color:#7d93b0;padding-left:12px;font-size:14px}
+.fin-money input{border:0;background:transparent;box-shadow:none!important;font-variant-numeric:tabular-nums}
+.fin-linked{display:inline-flex;align-items:center;gap:5px;color:#7fd3a0!important}
+.fin-modal-actions{display:flex;justify-content:flex-end;gap:10px;flex-wrap:wrap;margin-top:4px}
+.button.danger{background:#5a1f2a;border:1px solid #8a3343;color:#ffd5db}
+.button.danger:hover{background:#6e2533}
+@media (max-width:1500px){.fin-row{grid-template-columns:56px minmax(0,1fr) 96px 124px}.fin-method{display:none}}
+@media (max-width:1200px){.fin-stats{grid-template-columns:repeat(3,minmax(0,1fr))}.fin-grid{grid-template-columns:1fr}}
+@media (max-width:900px){.fin-stats{grid-template-columns:1fr 1fr}.fin-stats>.stat-card:last-child{grid-column:1/-1}}
+@media (max-width:700px){
+  .fin-row{grid-template-columns:minmax(0,1fr) auto;grid-template-areas:"desc value" "meta status";row-gap:6px;padding:13px 16px}
+  .fin-desc{grid-area:desc}.fin-value{grid-area:value}.fin-status{grid-area:status;justify-self:end}
+  .fin-date{grid-area:meta}
+  .fin-month strong{min-width:0;flex:1}
+  .fin-month{width:100%}
+  .fin-actions{width:100%}.fin-actions .button{flex:1}
+}
+@media (max-width:600px){.fin-stat .stat-value{font-size:20px;letter-spacing:-.4px;white-space:nowrap}.fin-stats>.stat-card:last-child .stat-value{font-size:24px}}

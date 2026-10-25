@@ -31,8 +31,8 @@ grant select on fx to authenticated, service_role;
 -- ===== 1. Ingestão =====
 do $$ declare r jsonb; begin
   r := public.wa_ingest('[
-    {"type":"message","key":"111000111:msg:wamid.A1","phone_number_id":"111000111","payload":{"wa_id":"5594988887777","name":"Maria Cliente","wamid":"wamid.A1","ts":"2026-10-23T12:00:00Z","type":"text","body":"Oi, quero banho e tosa"}},
-    {"type":"message","key":"111000111:msg:wamid.A1","phone_number_id":"111000111","payload":{"wa_id":"5594988887777","wamid":"wamid.A1","ts":"2026-10-23T12:00:00Z","type":"text","body":"duplicada"}},
+    {"type":"message","key":"111000111:msg:wamid.A1","phone_number_id":"111000111","payload":{"wa_id":"5594988887777","name":"Maria Cliente","wamid":"wamid.A1","ts":"2099-10-23T12:00:00Z","type":"text","body":"Oi, quero banho e tosa"}},
+    {"type":"message","key":"111000111:msg:wamid.A1","phone_number_id":"111000111","payload":{"wa_id":"5594988887777","wamid":"wamid.A1","ts":"2099-10-23T12:00:00Z","type":"text","body":"duplicada"}},
     {"type":"message","key":"999:msg:wamid.X","phone_number_id":"999999999","payload":{"wa_id":"5594900000000","wamid":"wamid.X","type":"text","body":"número desconhecido"}},
     {"type":"invalido","key":"k","phone_number_id":"111000111","payload":{}}
   ]');
@@ -47,7 +47,7 @@ do $$ declare r jsonb; c public.wa_conversations%rowtype; begin
   if (r->>'processed')::int <> 1 then raise exception 'P1 FALHOU: %', r; end if;
   select * into c from public.wa_conversations;
   if c.unread_count <> 1 or c.status <> 'open' or c.last_message_preview <> 'Oi, quero banho e tosa'
-     or c.service_window_expires_at <> '2026-10-23T12:00:00Z'::timestamptz + interval '24 hours' then
+     or c.service_window_expires_at <> '2099-10-23T12:00:00Z'::timestamptz + interval '24 hours' then
     raise exception 'P2 FALHOU: conversa %', row_to_json(c);
   end if;
   if (select name from public.wa_contacts) <> 'Maria Cliente' then raise exception 'P3 FALHOU: nome'; end if;
@@ -57,13 +57,13 @@ end $$;
 -- ===== 3. Eco do app (resposta humana pelo celular) + mensagem fora de ordem =====
 do $$ declare c public.wa_conversations%rowtype; begin
   perform public.wa_ingest('[
-    {"type":"echo","key":"111000111:echo:wamid.E1","phone_number_id":"111000111","payload":{"wa_id":"5594988887777","wamid":"wamid.E1","ts":"2026-10-23T12:05:00Z","type":"text","body":"Olá Maria! Temos horário amanhã."}},
-    {"type":"message","key":"111000111:msg:wamid.A0","phone_number_id":"111000111","payload":{"wa_id":"5594988887777","wamid":"wamid.A0","ts":"2026-10-23T11:59:00Z","type":"text","body":"mensagem mais antiga"}}
+    {"type":"echo","key":"111000111:echo:wamid.E1","phone_number_id":"111000111","payload":{"wa_id":"5594988887777","wamid":"wamid.E1","ts":"2099-10-23T12:05:00Z","type":"text","body":"Olá Maria! Temos horário amanhã."}},
+    {"type":"message","key":"111000111:msg:wamid.A0","phone_number_id":"111000111","payload":{"wa_id":"5594988887777","wamid":"wamid.A0","ts":"2099-10-23T11:59:00Z","type":"text","body":"mensagem mais antiga"}}
   ]');
   perform crm_private.wa_run_events(100);
   select * into c from public.wa_conversations;
-  if c.first_response_at <> '2026-10-23T12:05:00Z'::timestamptz then raise exception 'E1 FALHOU: tempo de 1ª resposta'; end if;
-  if c.first_inbound_at <> '2026-10-23T11:59:00Z'::timestamptz then raise exception 'E2 FALHOU: 1ª entrada fora de ordem'; end if;
+  if c.first_response_at <> '2099-10-23T12:05:00Z'::timestamptz then raise exception 'E1 FALHOU: tempo de 1ª resposta'; end if;
+  if c.first_inbound_at <> '2099-10-23T11:59:00Z'::timestamptz then raise exception 'E2 FALHOU: 1ª entrada fora de ordem'; end if;
   if c.last_message_preview <> 'Olá Maria! Temos horário amanhã.' then raise exception 'E3 FALHOU: prévia sobrescrita por msg antiga'; end if;
   if (select count(*) from public.wa_messages where source='app_echo' and direction='outbound') <> 1 then raise exception 'E4 FALHOU: eco'; end if;
   -- Reentrega do mesmo wamid com outra chave (ex.: histórico) não duplica
@@ -85,16 +85,35 @@ do $$ declare u int; begin
   if (select count(*) from public.wa_conversations) <> 2 then raise exception 'H3 FALHOU: conversa do histórico'; end if;
 end $$;
 
--- ===== 5. Agenda do app: atualiza só quem já conversa =====
+-- ===== 5. Agenda do app: nome na conversa existente e agenda guardada para conversas novas =====
 do $$ declare r jsonb; begin
   perform public.wa_ingest('[
     {"type":"contacts_sync","key":"111000111:cs:5594977776666:1","phone_number_id":"111000111","payload":{"wa_id":"5594977776666","name":"João do Rex","action":"add"}},
-    {"type":"contacts_sync","key":"111000111:cs:5594955554444:1","phone_number_id":"111000111","payload":{"wa_id":"5594955554444","name":"Sem conversa","action":"add"}}
+    {"type":"contacts_sync","key":"111000111:cs:5594955554444:1","phone_number_id":"111000111","payload":{"wa_id":"5594955554444","name":"Sem conversa","action":"add"}},
+    {"type":"contacts_sync","key":"111000111:cs:5594966665555:1","phone_number_id":"111000111","payload":{"wa_id":"5594966665555","name":"Vai sair","action":"add"}}
   ]');
   r := crm_private.wa_run_events(100);
   if (select name from public.wa_contacts where wa_id='5594977776666') <> 'João do Rex' then raise exception 'C1 FALHOU: nome da agenda'; end if;
-  if exists (select 1 from public.wa_contacts where wa_id='5594955554444') then raise exception 'C2 FALHOU: importou agenda inteira'; end if;
-  if (r->>'retry')::int <> 1 then raise exception 'C3 FALHOU: contato sem conversa deveria aguardar: %', r; end if;
+  if exists (select 1 from public.wa_contacts where wa_id='5594955554444') then raise exception 'C2 FALHOU: criou conversa a partir da agenda'; end if;
+  if (r->>'retry')::int <> 0 or (r->>'processed')::int <> 3 then raise exception 'C3 FALHOU: agenda deveria ser processada de primeira: %', r; end if;
+  if (select name from public.wa_address_book where wa_id='5594955554444') <> 'Sem conversa' then raise exception 'C4 FALHOU: agenda não guardada'; end if;
+  -- conversa nova de quem está na agenda nasce com o nome salvo, não com o do perfil
+  perform public.wa_ingest('[{"type":"message","key":"111000111:msg:wamid.AG1","phone_number_id":"111000111","payload":{"wa_id":"5594955554444","name":"Apelido do Perfil","wamid":"wamid.AG1","ts":"2099-10-23T12:30:00Z","type":"text","body":"Oi"}}]');
+  perform crm_private.wa_run_events(100);
+  if (select name from public.wa_contacts where wa_id='5594955554444') <> 'Sem conversa' then raise exception 'C5 FALHOU: nome do perfil venceu a agenda'; end if;
+  -- remoção da agenda
+  perform public.wa_ingest('[{"type":"contacts_sync","key":"111000111:cs:5594966665555:2","phone_number_id":"111000111","payload":{"wa_id":"5594966665555","name":"","action":"remove"}}]');
+  perform crm_private.wa_run_events(100);
+  if exists (select 1 from public.wa_address_book where wa_id='5594966665555') then raise exception 'C6 FALHOU: remoção da agenda'; end if;
+  -- mensagem ao vivo que chegou antes pelo histórico deixa de ser "histórico"
+  perform public.wa_ingest('[{"type":"history","key":"111000111:hist:wamid.LIVE","phone_number_id":"111000111","payload":{"wa_id":"5594955554444","wamid":"wamid.LIVE","ts":"2099-10-23T12:40:00Z","direction":"inbound","type":"text","body":"chegou junto"}}]');
+  perform crm_private.wa_run_events(100);
+  perform public.wa_ingest('[{"type":"message","key":"111000111:msg:wamid.LIVE","phone_number_id":"111000111","payload":{"wa_id":"5594955554444","wamid":"wamid.LIVE","ts":"2099-10-23T12:40:00Z","type":"text","body":"chegou junto"}}]');
+  perform crm_private.wa_run_events(100);
+  if (select source from public.wa_messages where external_message_id='wamid.LIVE') <> 'api_inbound' then raise exception 'C8 FALHOU: origem ao vivo'; end if;
+  if (select count(*) from public.wa_messages where external_message_id='wamid.LIVE') <> 1 then raise exception 'C9 FALHOU: duplicou'; end if;
+  -- usuário logado não lê a agenda diretamente
+  if has_table_privilege('authenticated','public.wa_address_book','select') then raise exception 'C7 FALHOU: agenda exposta'; end if;
 end $$;
 
 -- ===== 6. Operador: envio de texto, idempotência e isolamento =====
@@ -176,7 +195,7 @@ do $$ declare o record; v_msg uuid; v_conv uuid; r jsonb; begin
   if public.wa_account_token(o.account_id) <> 'token-ficticio-de-teste' then raise exception 'O3 FALHOU: token do cofre'; end if;
 
   -- Status "delivered" chega ANTES do registro do wamid: deve aguardar
-  perform public.wa_ingest('[{"type":"status","key":"111000111:st:wamid.S1:delivered","phone_number_id":"111000111","payload":{"wamid":"wamid.S1","status":"delivered","ts":"2026-10-23T12:10:05Z"}}]');
+  perform public.wa_ingest('[{"type":"status","key":"111000111:st:wamid.S1:delivered","phone_number_id":"111000111","payload":{"wamid":"wamid.S1","status":"delivered","ts":"2099-10-23T12:10:05Z"}}]');
   r := crm_private.wa_run_events(100);
   if (r->>'retry')::int < 1 then raise exception 'O4 FALHOU: status antecipado não aguardou: %', r; end if;
 
@@ -186,7 +205,7 @@ do $$ declare o record; v_msg uuid; v_conv uuid; r jsonb; begin
 
   -- reprocessa (forçando o próximo ciclo) e recebe "read" e depois "delivered" atrasado
   update public.wa_webhook_events set next_run = now() where processing_status='pending';
-  perform public.wa_ingest('[{"type":"status","key":"111000111:st:wamid.S1:read","phone_number_id":"111000111","payload":{"wamid":"wamid.S1","status":"read","ts":"2026-10-23T12:11:00Z"}}]');
+  perform public.wa_ingest('[{"type":"status","key":"111000111:st:wamid.S1:read","phone_number_id":"111000111","payload":{"wamid":"wamid.S1","status":"read","ts":"2099-10-23T12:11:00Z"}}]');
   perform crm_private.wa_run_events(100);
   if (select message_status from public.wa_messages where id=v_msg) <> 'read' then raise exception 'O6 FALHOU: status regrediu'; end if;
   perform public.wa_ingest('[{"type":"status","key":"111000111:st:wamid.S1:failed","phone_number_id":"111000111","payload":{"wamid":"wamid.S1","status":"failed","error_code":"131026"}}]');
@@ -265,7 +284,7 @@ end $$;
 
 -- Descadastro por palavra-chave bloqueia marketing
 do $$ begin
-  perform public.wa_ingest('[{"type":"message","key":"111000111:msg:wamid.OUT","phone_number_id":"111000111","payload":{"wa_id":"5594977776666","wamid":"wamid.OUT","ts":"2026-10-23T13:00:00Z","type":"text","body":" sair "}}]');
+  perform public.wa_ingest('[{"type":"message","key":"111000111:msg:wamid.OUT","phone_number_id":"111000111","payload":{"wa_id":"5594977776666","wamid":"wamid.OUT","ts":"2099-10-23T13:00:00Z","type":"text","body":" sair "}}]');
   perform crm_private.wa_run_events(100);
   if (select marketing_opt_out_at from public.wa_contacts where wa_id='5594977776666') is null then raise exception 'T7 FALHOU: descadastro'; end if;
 end $$;
@@ -273,7 +292,7 @@ end $$;
 -- ===== 9. Evento que sempre falha vira "dead" após 8 tentativas =====
 do $$ declare r jsonb; begin
   insert into public.wa_webhook_events(company_id,account_id,event_type,external_event_id,payload_restricted,attempts)
-    values ((select company_id from fx),(select account_id from fx),'contacts_sync','111000111:cs:teste-dead','{"wa_id":"5594911112222","name":"X","action":"add"}',7);
+    values ((select company_id from fx),(select account_id from fx),'status','111000111:cs:teste-dead','{"wamid":"wamid.NAO-EXISTE","status":"delivered"}',7);
   r := crm_private.wa_run_events(100);
   if (select processing_status from public.wa_webhook_events where external_event_id='111000111:cs:teste-dead') <> 'dead' then
     raise exception 'D1 FALHOU: %', r;
@@ -283,7 +302,7 @@ end $$;
 -- ===== 10. Lead automático quando a empresa ativa =====
 do $$ begin
   update public.crm_companies set settings = settings || '{"wa_auto_lead":true}' where id = (select company_id from fx);
-  perform public.wa_ingest('[{"type":"message","key":"111000111:msg:wamid.N1","phone_number_id":"111000111","payload":{"wa_id":"5594933332222","name":"Novo Cliente","wamid":"wamid.N1","ts":"2026-10-23T14:00:00Z","type":"text","body":"Vocês têm ração?"}}]');
+  perform public.wa_ingest('[{"type":"message","key":"111000111:msg:wamid.N1","phone_number_id":"111000111","payload":{"wa_id":"5594933332222","name":"Novo Cliente","wamid":"wamid.N1","ts":"2099-10-23T14:00:00Z","type":"text","body":"Vocês têm ração?"}}]');
   perform crm_private.wa_run_events(100);
   if (select crm_lead_id from public.wa_contacts where wa_id='5594933332222') is null then raise exception 'L4 FALHOU: lead automático'; end if;
 end $$;

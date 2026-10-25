@@ -19,7 +19,24 @@ type Props = {
   onLeadCreated?: () => Promise<void> | void;
 };
 
-const CATEGORIES = ['Banho e tosa', 'Produtos', 'Serviços', 'Informações gerais', 'Outros'];
+// Tipos de atendimento: sugestões + os que a empresa já usa (cada empresa cria os seus digitando)
+const DEMO_CATEGORIES = ['Banho e tosa', 'Produtos', 'Serviços', 'Informações gerais', 'Outros'];
+const BASE_CATEGORIES = ['Orçamento', 'Dúvida', 'Suporte', 'Pós-venda', 'Financeiro', 'Reclamação', 'Outros'];
+
+function CategoryInput({value, options, onSave}: {value: string; options: string[]; onSave: (v: string) => void}) {
+  const [text, setText] = useState(value);
+  useEffect(() => setText(value), [value]);
+  const commit = (v: string) => { const t = v.trim().slice(0, 60); if (t !== value) onSave(t); };
+  return (
+    <>
+      <input list="wa-categories" maxLength={60} placeholder="Escolha ou digite um tipo" value={text} aria-label="Tipo de atendimento"
+        onChange={e => { setText(e.target.value); if (options.includes(e.target.value)) commit(e.target.value); }}
+        onBlur={() => commit(text)}
+        onKeyDown={e => { if (e.key === 'Enter') { e.preventDefault(); (e.target as HTMLInputElement).blur(); } }} />
+      <datalist id="wa-categories">{options.map(c => <option key={c} value={c} />)}</datalist>
+    </>
+  );
+}
 const STATUS: Record<string, string> = {open: 'Em aberto', pending: 'Pendente', resolved: 'Resolvida'};
 const FILTERS = [
   ['all', 'Todas'], ['unread', 'Não lidas'], ['awaiting', 'Aguardando resposta'],
@@ -272,6 +289,7 @@ export default function WhatsAppInbox({demo, members, me, onOpenLead, onLeadCrea
   const windowText = windowLeft(selected?.service_window_expires_at);
   const memberName = (id?: string | null) => members.find(m => m.id === id)?.name;
   const accountTemplates = templates.filter(t => !selected || t.account_id === selected.account?.id);
+  const categoryOptions = Array.from(new Set([...(demo ? DEMO_CATEGORIES : BASE_CATEGORIES), ...conversations.map(c => c.category).filter(Boolean)])) as string[];
 
   // ----- partes da tela -----
   const details = selected && (
@@ -294,13 +312,7 @@ export default function WhatsAppInbox({demo, members, me, onOpenLead, onLeadCrea
       </label>
       <label className="field">
         <span>Tipo de atendimento</span>
-        <Select value={selected.category || 'none'} onValueChange={v => update({category: v === 'none' ? '' : v})}>
-          <SelectTrigger aria-label="Tipo de atendimento"><SelectValue /></SelectTrigger>
-          <SelectContent>
-            <SelectItem value="none">Sem classificação</SelectItem>
-            {CATEGORIES.map(c => <SelectItem key={c} value={c}>{c}</SelectItem>)}
-          </SelectContent>
-        </Select>
+        <CategoryInput key={selected.id} value={selected.category || ''} options={categoryOptions} onSave={v => update({category: v})} />
       </label>
       <label className="field">
         <span>Responsável</span>
