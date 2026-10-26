@@ -11,6 +11,8 @@ import {toast} from 'sonner';
 import CountUp from '@/components/count-up';
 import {downloadCsv, sheetDate, sheetNumber} from '@/lib/export';
 import {financeDemo} from '@/lib/finance-demo';
+import {petshopFinance} from '@/lib/demo-petshop';
+import {demoVariant} from '@/lib/demo';
 
 export type FinanceEntry = {
   id?: string; kind: 'income' | 'expense'; occurred_on: string; description: string; category: string;
@@ -62,7 +64,7 @@ async function call(body?: unknown, query = '') {
 
 export default function Finance({demo, leads, draft, onDraftUsed}: Props) {
   const [month, setMonth] = useState(() => monthKey(new Date()));
-  const [entries, setEntries] = useState<FinanceEntry[]>(() => (demo ? financeDemo() : []));
+  const [entries, setEntries] = useState<FinanceEntry[]>(() => (demo ? (demoVariant() === 'petshop' ? petshopFinance() as FinanceEntry[] : financeDemo()) : []));
   const [loading, setLoading] = useState(!demo);
   const [loadError, setLoadError] = useState('');
   const [filter, setFilter] = useState<Filter>('all');

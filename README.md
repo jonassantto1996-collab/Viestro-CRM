@@ -65,7 +65,7 @@ Número continua no aplicativo WhatsApp Business e passa a funcionar também no 
 **Fluxo**
 
 1. Meta → `POST /api/webhooks/whatsapp/<WHATSAPP_WEBHOOK_KEY>` → `wa_ingest()` grava o evento deduplicado e responde 200. Falha no banco → 503 e a Meta reenvia.
-2. `crm_private.wa_run_events()` processa no banco (pg_cron `viestro-wa-process-events` a cada minuto e logo após cada webhook): contatos, conversas, mensagens, ecos do app (`smb_message_echoes`), status, histórico de até 6 meses (`history`) e nomes da agenda (`smb_app_state_sync`, só para quem já conversa).
+2. `crm_private.wa_run_events()` processa no banco (pg_cron `viestro-wa-process-events` a cada minuto e logo após cada webhook): contatos, conversas, mensagens, ecos do app (`smb_message_echoes`), status, histórico de até 6 meses (`history`) e agenda do celular (`smb_app_state_sync`: nome + número em `wa_address_book`, sem acesso pelo navegador; conversa nova nasce com o nome salvo, que vale mais que o nome do perfil).
 3. Operador responde pelo CRM → `crm_wa_send_text`/`crm_wa_send_template` validam empresa, janela de 24h, consentimento e enfileiram em `wa_outbox` → backend envia para a Cloud API com o token do número guardado no Supabase Vault.
 
 **Segurança**
@@ -79,11 +79,29 @@ Número continua no aplicativo WhatsApp Business e passa a funcionar também no 
 
 **Caixa de entrada (menu WhatsApp):** lista com filtros (não lidas, aguardando resposta, minhas, sem responsável, resolvidas) e busca; conversa com origem de cada mensagem (cliente, CRM, celular, histórico) e status de entrega; resposta livre só com a janela de 24h aberta, senão envio de template; status, tipo de atendimento, responsável, criação de lead com um clique e registro de autorização para promoções. Atualiza a cada 10 s (conversa aberta a cada 5 s). Sem login, mostra uma demonstração de pet shop com dados fictícios.
 
+**Indicadores (WhatsApp → Indicadores):** conversas no período, tempo médio e mediana de resposta (cada mensagem do cliente sem resposta até a próxima enviada, pelo CRM ou celular), % respondidas em até 1h, aguardando resposta agora, mensagens por dia, por tipo de atendimento e por responsável (`lib/whatsapp-metrics.mjs`, testado em `tests/whatsapp-metrics.test.mjs`).
+
+**Templates:** criados e aprovados na Meta; o CRM sincroniza (`syncTemplates`) ao abrir a caixa de entrada ou o envio de template (mínimo 60 s por número), mostra os em análise/recusados e só envia os aprovados. A Meta pode reclassificar um template de atendimento como marketing; nesse caso valem as regras de consentimento.
+
+**Tipos de atendimento:** texto livre com sugestões (as da empresa + padrão), até 60 caracteres.
+
 **Variáveis (Vercel, somente servidor):** `WHATSAPP_WEBHOOK_KEY` (32+ caracteres aleatórios), `WHATSAPP_VERIFY_TOKEN` (32+), `WHATSAPP_GRAPH_BASE` (opcional, padrão v26.0), além de `SUPABASE_SECRET_KEY` e `CRON_SECRET` já existentes.
 
 **Ativar um número (somente com autorização):** conectar pelo EasyCoexistence com QR code (nunca código SMS); salvar o token no Vault do Supabase com nome `wa_token_<phone_number_id>`; cadastrar `crm_channels` (provider `whatsapp`, `external_id` = phone_number_id) e `wa_accounts` com o id do segredo; apontar o destino do webhook no provedor em até 24h para receber o histórico.
 
 **Testes:** `npm test` (normalização, chave, classificação de erros); `tests/whatsapp_database.sql` e `tests/whatsapp_isolamento.sql` (em transação com rollback; nunca em produção com comandos de exclusão).
+
+## Financeiro
+
+Menu **Financeiro** (somente administradores): lançamentos de entrada e despesa por mês (`crm_finance_entries`), com serviço/categoria, cliente (opcionalmente ligado a um lead), forma de pagamento, situação (pago/pendente) e data do pagamento. Resumo do mês (faturado, recebido, a receber, despesas, resultado) com filtro por clique, gráfico de 6 meses e exportação do mês para planilha (CSV `;` com acentos, abre no Excel). Ao mover uma oportunidade para **Ganho**, o CRM sugere lançar o valor. Leitura por RLS (admin da própria empresa); escrita só por `crm_finance_save`/`crm_finance_delete`. Testes: `tests/financeiro_database.sql`.
+
+## Exportação
+
+Toda listagem principal exporta para planilha pelo utilitário `lib/export.ts` (proteção contra fórmulas, números negativos e datas no padrão brasileiro): Leads, Funil e Financeiro.
+
+## Demonstração
+
+Sem login, o CRM abre em modo demonstração com dados fictícios. Para apresentar a um pet shop: `/?demo=petshop` (empresa, leads, funil, financeiro, WhatsApp e indicadores de pet shop).
 
 ## Fila e execução
 
