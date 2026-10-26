@@ -2,6 +2,7 @@ import {after} from 'next/server';
 import {sessionClient} from '@/lib/supabase/server';
 import {reply, body, sameOrigin} from '@/lib/http';
 import {drainOutbox, syncTemplates} from '@/lib/whatsapp-worker';
+import {waMetrics} from '@/lib/whatsapp-metrics.mjs';
 
 export const dynamic = 'force-dynamic';
 
@@ -39,6 +40,23 @@ export async function GET(req: Request) {
       const messages = (data || []).map(m => ({...m, at: m.provider_timestamp || m.created_at}))
         .sort((a, b) => a.at.localeCompare(b.at));
       return reply({messages});
+    }
+
+    if (view === 'metrics') {
+      const days = [7, 30, 90].includes(Number(p.get('days'))) ? Number(p.get('days')) : 30;
+      const since = new Date(Date.now() - days * 86_400_000).toISOString();
+      const [convs, msgs] = await Promise.all([
+        db.from('wa_conversations')
+          .select('id,status,category,assigned_user_id,first_inbound_at,last_inbound_at,last_outbound_at,contact:wa_contacts(crm_lead_id)')
+          .limit(5000),
+        db.from('wa_messages').select('conversation_id,direction,source,provider_timestamp,created_at')
+          .or(`provider_timestamp.gte.${since},and(provider_timestamp.is.null,created_at.gte.${since})`)
+          .order('provider_timestamp', {ascending: true}).limit(20000),
+      ]);
+      if (convs.error) throw convs.error;
+      if (msgs.error) throw msgs.error;
+      const messages = (msgs.data || []).map(m => ({conversation_id: m.conversation_id, direction: m.direction, source: m.source, at: m.provider_timestamp || m.created_at}));
+      return reply({metrics: waMetrics({conversations: convs.data || [], messages, days}), limited: (msgs.data || []).length === 20000});
     }
 
     if (view === 'summary') {

@@ -413,3 +413,23 @@ body {
 .wa-tpl-others strong{font-weight:550;color:#dbe6f5}
 .wa-tpl-others span{margin-left:auto;font-size:12px}
 .wa-tpl-others span.pending{color:#f0c674}.wa-tpl-others span.bad{color:#f0a3a3}
+
+/* ===== WhatsApp · Indicadores ===== */
+.seg{display:inline-flex;gap:4px;padding:4px;background:#0f1b2c;border:1px solid #233149;border-radius:10px}
+.seg button{height:34px;padding:0 14px;border-radius:7px;font-size:14px;color:#9fb3cd;transition:background .2s,color .2s}
+.seg button:hover{color:#e3ecf8}
+.seg button.active{background:#163153;color:#cfe4ff;box-shadow:inset 0 0 0 1px #2f5a8e}
+.wa-metrics-bar{display:flex;align-items:center;justify-content:space-between;gap:12px;flex-wrap:wrap;margin-bottom:20px}
+.wa-period button{width:auto;padding:0 12px;font-size:13px}
+.wa-period button.active{background:#163153;color:#cfe4ff}
+.wa-metrics .stat-card:not(.is-link) .stat-value{font-size:28px}
+.wa-metrics .legend i.sent{background:#63d9c1}
+.wa-breakdown .funnel-item>div:first-child span{white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.wa-breakdown .wa-sub{padding-top:6px;padding-bottom:12px;border-top:1px solid #223249}
+.wa-breakdown .funnel-summary span{display:inline-flex;align-items:center;gap:6px}
+.wa-breakdown .muted{padding-bottom:12px}
+@media (max-width:900px){.wa-breakdown{display:block}}
+@media (max-width:600px){.seg{width:100%}.seg button{flex:1}.wa-period{width:100%}.wa-period button{flex:1;padding:0 6px;font-size:12px}}
+.wa-metrics .chart{height:330px}
+@media (min-width:901px){.wa-metrics .chart-grid .chart{height:410px}}
+@media (max-width:900px){.wa-metrics .chart{height:260px}}

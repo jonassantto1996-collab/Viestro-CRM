@@ -17,6 +17,7 @@ type Props = {
   me?: {id: string; role: string} | null;
   onOpenLead?: (leadId: string) => void;
   onLeadCreated?: () => Promise<void> | void;
+  initialFilter?: string;
 };
 
 // Tipos de atendimento: sugestões + os que a empresa já usa (cada empresa cria os seus digitando)
@@ -135,14 +136,14 @@ function Status({m}: {m: any}) {
   return <Check size={13} className="wa-tick" aria-label="Enviada" />;
 }
 
-export default function WhatsAppInbox({demo, members, me, onOpenLead, onLeadCreated}: Props) {
+export default function WhatsAppInbox({demo, members, me, onOpenLead, onLeadCreated, initialFilter}: Props) {
   const seed = useMemo(() => (demo ? waDemo() : null), [demo]);
   const [conversations, setConversations] = useState<any[]>(seed?.conversations || []);
   const [demoMessages, setDemoMessages] = useState<Record<string, any[]>>(seed?.messages || {});
   const [messages, setMessages] = useState<any[]>([]);
   const [templates, setTemplates] = useState<any[]>(seed?.templates || []);
   const [selectedId, setSelectedId] = useState<string | null>(null);
-  const [filter, setFilter] = useState<string>('all');
+  const [filter, setFilter] = useState<string>(initialFilter || 'all');
   const [query, setQuery] = useState('');
   const [text, setText] = useState('');
   const [loading, setLoading] = useState(!demo);
