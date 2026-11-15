@@ -89,3 +89,10 @@ export function waDemo() {
     ],
   };
 }
+
+// Sugestões fictícias do agente na demonstração (sem chamar a IA).
+export const waDemoSugestoes: Record<string, {resposta: string; precisa_humano: boolean; motivo_humano: string; intencao: string; agendamento: Record<string, string> | null}> = {
+  d1: {resposta: 'Oi, Maria! Temos horário amanhã para banho e tosa, sim 🐶 Para shih-tzu o banho e tosa sai por R$ 85,00. Prefere de manhã ou à tarde?', precisa_humano: false, motivo_humano: '', intencao: 'agendamento', agendamento: {nome: 'Maria Souza', servico: 'Banho e tosa (shih-tzu)', dia_preferido: 'amanhã', periodo: ''}},
+  d4: {resposta: 'Oi, Ana! Aos domingos abrimos das 8h às 12h. Posso ajudar com mais alguma coisa?', precisa_humano: false, motivo_humano: '', intencao: 'duvida', agendamento: null},
+  d6: {resposta: 'Boa tarde! Fazemos entrega de ração, sim. Me passa seu bairro que a equipe confirma o valor da entrega pra você 😉', precisa_humano: true, motivo_humano: 'Confirmar taxa de entrega para o bairro', intencao: 'duvida', agendamento: null},
+};

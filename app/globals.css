@@ -433,3 +433,17 @@ body {
 .wa-metrics .chart{height:330px}
 @media (min-width:901px){.wa-metrics .chart-grid .chart{height:410px}}
 @media (max-width:900px){.wa-metrics .chart{height:260px}}
+/* Agente de atendimento (modo sugestão) */
+.wa-suggest{display:flex;align-items:flex-start;gap:8px;font-size:13px;line-height:1.5;color:#a9c9ef;background:#11263f;border:1px solid #284a70;border-radius:8px;padding:8px 11px}
+.wa-suggest>svg{flex:none;margin-top:3px;color:#7cbaff}
+.wa-suggest strong{color:#d6e7fb;font-weight:600}
+.wa-suggest em{font-style:normal;color:#e6c27a}
+.wa-suggest.handoff{border-color:#5e4a2a;background:#231d14}
+.agent-settings{grid-column:1/-1}
+.agent-toggle{display:flex;align-items:center;gap:10px;font-size:14px;color:#c3d1e5;margin:4px 0 18px}
+.agent-settings .form-row{margin-bottom:16px}
+.agent-settings>.field{margin:0 0 16px}
+.agent-select{width:100%;border:1px solid #2a3b54;border-radius:7px;background:#0a1626;color:#edf2fa;padding:10px 12px;font:inherit;font-size:16px;height:44px}
+.agent-mode{display:flex;flex-direction:column;gap:3px;border:1px dashed #2f4b6c;border-radius:8px;padding:12px 14px;margin-bottom:6px}
+.agent-mode strong{font-size:13px;color:#d4e3f7}
+.agent-mode span{font-size:12px;color:#86a0bf}

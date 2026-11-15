@@ -2,13 +2,13 @@
 import {useCallback, useEffect, useMemo, useRef, useState} from 'react';
 import {
   AlertTriangle, ArrowLeft, Check, CheckCheck, Clock, FileText, Info, Lock, MessageCircle, Phone,
-  Search, Send, ShieldCheck, Smartphone, User, UserPlus, Users,
+  Search, Send, ShieldCheck, Smartphone, Sparkles, User, UserPlus, Users,
 } from 'lucide-react';
 import {Select, SelectTrigger, SelectValue, SelectContent, SelectItem} from '@/components/ui/select';
 import {Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription} from '@/components/ui/dialog';
 import {Sheet, SheetContent, SheetHeader, SheetTitle, SheetDescription} from '@/components/ui/sheet';
 import {toast} from 'sonner';
-import {waDemo} from '@/lib/whatsapp-demo';
+import {waDemo, waDemoSugestoes} from '@/lib/whatsapp-demo';
 
 type Member = {id: string; name: string; role?: string};
 type Props = {
@@ -18,6 +18,7 @@ type Props = {
   onOpenLead?: (leadId: string) => void;
   onLeadCreated?: () => Promise<void> | void;
   initialFilter?: string;
+  agent?: boolean;
 };
 
 // Tipos de atendimento: sugestões + os que a empresa já usa (cada empresa cria os seus digitando)
@@ -136,7 +137,10 @@ function Status({m}: {m: any}) {
   return <Check size={13} className="wa-tick" aria-label="Enviada" />;
 }
 
-export default function WhatsAppInbox({demo, members, me, onOpenLead, onLeadCreated, initialFilter}: Props) {
+type Sugestao = {resposta: string; precisa_humano: boolean; motivo_humano: string; intencao: string; agendamento: Record<string, string> | null};
+const esperando = (c: any) => !!c?.last_inbound_at && (!c.last_outbound_at || c.last_inbound_at > c.last_outbound_at);
+
+export default function WhatsAppInbox({demo, members, me, onOpenLead, onLeadCreated, initialFilter, agent = false}: Props) {
   const seed = useMemo(() => (demo ? waDemo() : null), [demo]);
   const [conversations, setConversations] = useState<any[]>(seed?.conversations || []);
   const [demoMessages, setDemoMessages] = useState<Record<string, any[]>>(seed?.messages || {});
@@ -149,6 +153,9 @@ export default function WhatsAppInbox({demo, members, me, onOpenLead, onLeadCrea
   const [loading, setLoading] = useState(!demo);
   const [loadError, setLoadError] = useState('');
   const [sending, setSending] = useState(false);
+  const [sugestao, setSugestao] = useState<Sugestao | null>(null);
+  const [sugerindo, setSugerindo] = useState(false);
+  const abertaRef = useRef<string | null>(null);
   const [detailsOpen, setDetailsOpen] = useState(false);
   const [tplOpen, setTplOpen] = useState(false);
   const [consentOpen, setConsentOpen] = useState(false);
@@ -225,9 +232,30 @@ export default function WhatsAppInbox({demo, members, me, onOpenLead, onLeadCrea
     setConversations(cs => cs.map(c => (c.id === id ? {...c, ...patch, contact: {...c.contact, ...(patch.contact || {})}} : c)));
   }
 
+  // Agente em modo sugestão: escreve a resposta no campo; a pessoa revisa e envia.
+  async function sugerir(c: any = selected) {
+    if (!c || !agent || sugerindo) return;
+    setSugerindo(true);
+    try {
+      const s: Sugestao | undefined = demo ? waDemoSugestoes[c.id] : (await call({action: 'suggest', conversation: c.id})).sugestao;
+      if (demo) await new Promise(r => setTimeout(r, 700));
+      if (abertaRef.current !== c.id) return; // trocou de conversa enquanto a IA pensava
+      if (!s) { toast.info('Na demonstração, a sugestão aparece nas conversas que esperam resposta.'); return; }
+      setSugestao(s);
+      setText(s.resposta);
+    } catch (e: any) {
+      if (abertaRef.current === c.id) toast.error(e.message);
+    } finally {
+      setSugerindo(false);
+    }
+  }
+
   async function openConversation(c: any) {
     setSelectedId(c.id);
+    abertaRef.current = c.id;
+    setSugestao(null);
     setText('');
+    if (agent && esperando(c) && windowLeft(c.service_window_expires_at)) sugerir(c);
     // No celular a conversa ocupa a tela inteira: rola até ela para o campo de resposta ficar visível.
     if (window.matchMedia('(max-width: 900px)').matches) requestAnimationFrame(() => rootRef.current?.scrollIntoView({block: 'start'}));
     if (!demo) setMessages([]);
@@ -268,6 +296,7 @@ export default function WhatsAppInbox({demo, members, me, onOpenLead, onLeadCrea
       patchLocal(selected.id, {last_outbound_at: optimistic.at, last_message_at: optimistic.at, last_message_preview: body.slice(0, 160), unread_count: 0,
         first_response_at: selected.first_response_at || (selected.first_inbound_at ? optimistic.at : null)});
       setText('');
+      setSugestao(null);
     } catch (e: any) {
       setMessages(m => m.filter(x => x.id !== optimistic.id));
       toast.error(e.message);
@@ -442,7 +471,7 @@ export default function WhatsAppInbox({demo, members, me, onOpenLead, onLeadCrea
         ) : (
           <>
             <header className="wa-thread-head">
-              <button className="wa-back" onClick={() => setSelectedId(null)} aria-label="Voltar para a lista"><ArrowLeft size={18} /></button>
+              <button className="wa-back" onClick={() => { setSelectedId(null); abertaRef.current = null; }} aria-label="Voltar para a lista"><ArrowLeft size={18} /></button>
               <Avatar c={selected} />
               <div className="wa-thread-title">
                 <strong>{contactName(selected)}</strong>
@@ -483,8 +512,20 @@ export default function WhatsAppInbox({demo, members, me, onOpenLead, onLeadCrea
             <footer className="wa-composer">
               {windowText ? (
                 <>
+                  {(sugerindo || sugestao) && (
+                    <div className={'wa-suggest' + (sugestao?.precisa_humano ? ' handoff' : '')} role="status">
+                      <Sparkles size={14} />
+                      {sugerindo ? <span>O agente está escrevendo uma sugestão…</span> : sugestao && (
+                        <span>
+                          <strong>Sugestão do agente.</strong> Revise antes de enviar.
+                          {sugestao.precisa_humano && <em> Pede atenção da equipe{sugestao.motivo_humano ? `: ${sugestao.motivo_humano}` : ''}.</em>}
+                          {sugestao.agendamento && <em> Pedido de agendamento: {[sugestao.agendamento.servico, sugestao.agendamento.dia_preferido, sugestao.agendamento.periodo].filter(Boolean).join(' · ') || 'dados a confirmar'}.</em>}
+                        </span>
+                      )}
+                    </div>
+                  )}
                   <textarea
-                    rows={2}
+                    rows={Math.min(6, Math.max(2, text.split('\n').length + Math.floor(text.length / 32)))}
                     maxLength={4096}
                     placeholder="Escreva uma resposta… (Enter envia, Shift+Enter quebra linha)"
                     value={text}
@@ -493,6 +534,7 @@ export default function WhatsAppInbox({demo, members, me, onOpenLead, onLeadCrea
                     aria-label="Mensagem"
                   />
                   <div className="wa-composer-actions">
+                    {agent && <button className="button secondary" disabled={sugerindo} onClick={() => sugerir()} title="O agente escreve uma resposta para você revisar"><Sparkles size={15} /> {sugerindo ? 'Escrevendo…' : 'Sugerir'}</button>}
                     <button className="button secondary" onClick={() => setTplOpen(true)} title="Enviar template aprovado"><FileText size={15} /> Template</button>
                     <button className="button primary" disabled={!text.trim() || sending} onClick={sendText}><Send size={15} /> {sending ? 'Enviando…' : 'Enviar'}</button>
                   </div>
