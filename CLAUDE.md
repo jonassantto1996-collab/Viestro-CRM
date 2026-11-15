@@ -20,6 +20,7 @@ CRM próprio da Viestro Assessoria, reaproveitável para qualquer nicho (clínic
 - `app/api/finance` — `crm_finance_save` / `crm_finance_delete`.
 - `app/api/whatsapp` — enviar texto/template, consentimento, criar lead, marcar lida (`crm_wa_*`).
 - `app/api/webhooks/whatsapp/[key]` — entrada da Meta via EasyCoexistence (`wa_ingest`). `app/api/webhooks/meta` — webhook Instagram/WhatsApp antigo (HMAC).
+- `app/api/mcp/[chave]` — conector do Claude (MCP, só leitura): `lib/mcp-protocolo.mjs` (JSON-RPC), `lib/mcp-chave.mjs` (endereço secreto por empresa = HMAC da `SUPABASE_SECRET_KEY`; `CRM_MCP_ROTACAO` troca todos, `CRM_MCP_DESLIGADO=1` desliga), `lib/mcp-ferramentas.ts` (7 consultas, sempre filtradas por `company_id`). Endereço para o admin: `app/api/conector-claude` + `components/claude-connector.tsx` (Configurações).
 - `app/api/capture` — entrada externa de leads por token. `app/api/worker`, `app/api/whatsapp/worker` — filas (`lib/worker.ts`, `lib/whatsapp-worker.ts`).
 - `lib/supabase/server.ts` — cliente Supabase (URL/chave padrão da instalação Viestro). `lib/export.ts` — exportar planilha (CSV `;`). `lib/whatsapp.mjs`, `lib/whatsapp-metrics.mjs`, `lib/meta.mjs` — regras testadas.
 - `lib/demo*.ts`, `lib/*-demo.ts` — dados fictícios do modo demonstração (`/?demo=petshop`).
@@ -38,9 +39,11 @@ CRM próprio da Viestro Assessoria, reaproveitável para qualquer nicho (clínic
 - 2026-10 — WhatsApp oficial via EasyCoexistence; lead automático desligado por padrão (`settings.wa_auto_lead`), operador cria lead pela conversa.
 - 2026-10 — Aba Financeiro controla entradas **e** despesas por mês (modelo CredFaz); mover oportunidade para Ganho sugere lançamento.
 - 2026-10 — Demonstração de pet shop em `/?demo=petshop` para vendas.
+- 2026-11-14 — Conector do Claude (MCP) só de consulta; ações (enviar mensagem, mover lead) só depois, com confirmação. Próximo: agente do WhatsApp em modo sugestão.
 - 2026-10 — Primeira implantação planejada: clínica (reativação de pacientes antigos); manter o CRM genérico para outros nichos.
 
 ## Erros já resolvidos
+- 2026-11 — `npm ci` falha (lock fora de sincronia: ajv); para testar local use `npm install --package-lock=false`.
 - 2026-10 — "supabaseUrl is required" no deploy → URL/chave publicável padrão no `lib/supabase/server.ts`.
 - 2026-10 — Variável nova na Vercel não fazia efeito → precisa republicar o deploy.
 - 2026-10 — Falha silenciosa no webhook do WhatsApp → agora registra o motivo técnico (sem dados pessoais).
