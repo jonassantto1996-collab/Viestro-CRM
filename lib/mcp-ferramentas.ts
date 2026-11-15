@@ -19,6 +19,8 @@ const digitos = (s?: string | null) => (s || '').replace(/\D/g, '');
 const semAcento = (s: unknown) => String(s ?? '').normalize('NFD').replace(/[̀-ͯ]/g, '').toLowerCase();
 const diasDesde = (iso?: string | null) => iso ? Math.floor((Date.now() - Date.parse(iso)) / 86_400_000) : null;
 const hojeISO = () => new Intl.DateTimeFormat('en-CA', {timeZone: FUSO}).format(new Date());
+// Último dia do mês (AAAA-MM). Datas como 2026-11-31 não existem e o banco recusa.
+const fimDoMes = (mes: string) => { const [a, m] = mes.split('-').map(Number); return new Date(Date.UTC(a, m, 0)).toISOString().slice(0, 10); };
 const corta = (s: unknown, n: number) => { const t = String(s ?? '').trim(); return t.length > n ? t.slice(0, n) + '…' : t; };
 
 function inteiro(v: unknown, padrao: number, min: number, max: number) {
@@ -139,7 +141,7 @@ export function criarFerramentas(db: SupabaseClient, empresaId: string): Ferrame
         const esperando = convs.filter(c => c.last_inbound_at && Date.parse(c.last_inbound_at) > (c.last_outbound_at ? Date.parse(c.last_outbound_at) : 0));
         const mes = hoje.slice(0, 7);
         const {data: fin, error} = await db.from('crm_finance_entries').select('kind,status,amount_cents').eq('company_id', empresaId)
-          .gte('occurred_on', `${mes}-01`).lte('occurred_on', `${mes}-31`);
+          .gte('occurred_on', `${mes}-01`).lte('occurred_on', fimDoMes(mes));
         if (error) throw error;
         const soma = (k: string, s?: string) => (fin || []).filter(f => f.kind === k && (!s || f.status === s)).reduce((t, f) => t + Number(f.amount_cents), 0) / 100;
         return {
@@ -285,8 +287,7 @@ export function criarFerramentas(db: SupabaseClient, empresaId: string): Ferrame
       run: async args => {
         const mes = /^\d{4}-(0[1-9]|1[0-2])$/.test(texto(args.mes, 7)) ? texto(args.mes, 7) : hojeISO().slice(0, 7);
         const tipo = texto(args.tipo) || 'todos';
-        const [a, m] = mes.split('-').map(Number);
-        const fim = new Date(Date.UTC(a, m, 0)).toISOString().slice(0, 10);
+        const fim = fimDoMes(mes);
         let q = db.from('crm_finance_entries').select('kind,occurred_on,description,category,client_name,amount_cents,method,status,paid_on')
           .eq('company_id', empresaId).gte('occurred_on', `${mes}-01`).lte('occurred_on', fim).order('occurred_on', {ascending: true}).limit(500);
         if (tipo !== 'todos') q = q.eq('kind', tipo === 'entradas' ? 'income' : 'expense');

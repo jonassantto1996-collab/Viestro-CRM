@@ -43,6 +43,7 @@ CRM próprio da Viestro Assessoria, reaproveitável para qualquer nicho (clínic
 - 2026-10 — Primeira implantação planejada: clínica (reativação de pacientes antigos); manter o CRM genérico para outros nichos.
 
 ## Erros já resolvidos
+- 2026-11-14 — resumo_crm do conector falhava em meses de 30 dias (data 2026-11-31 inválida no Postgres) → `fimDoMes()`.
 - 2026-11 — `npm ci` falha (lock fora de sincronia: ajv); para testar local use `npm install --package-lock=false`.
 - 2026-10 — "supabaseUrl is required" no deploy → URL/chave publicável padrão no `lib/supabase/server.ts`.
 - 2026-10 — Variável nova na Vercel não fazia efeito → precisa republicar o deploy.
