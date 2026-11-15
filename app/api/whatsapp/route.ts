@@ -3,6 +3,8 @@ import {sessionClient} from '@/lib/supabase/server';
 import {reply, body, sameOrigin} from '@/lib/http';
 import {drainOutbox, syncTemplates} from '@/lib/whatsapp-worker';
 import {waMetrics} from '@/lib/whatsapp-metrics.mjs';
+import {lerAgente} from '@/lib/agente.mjs';
+import {sugerirResposta, ErroAgente} from '@/lib/agente-ia';
 
 export const dynamic = 'force-dynamic';
 
@@ -136,6 +138,30 @@ export async function POST(req: Request) {
         if (!isUuid(b.conversation)) return reply({error: 'Dados inválidos'}, 400);
         const {data, error} = await db.rpc('crm_wa_create_lead', {p_conversation: b.conversation});
         return error ? dbError(error) : reply({ok: true, lead: data});
+      }
+      case 'suggest': {
+        // Agente em modo sugestão: só lê (pela sessão, com RLS da empresa) e devolve um texto; quem envia é a pessoa.
+        if (!isUuid(b.conversation)) return reply({error: 'Dados inválidos'}, 400);
+        const {data: member} = await db.from('crm_members').select('company_id').eq('user_id', user.id).maybeSingle();
+        if (!member?.company_id) return reply({error: 'Usuário sem empresa.'}, 403);
+        const [co, conv, msgs] = await Promise.all([
+          db.from('crm_companies').select('name,niche,settings').eq('id', member.company_id).single(),
+          db.from('wa_conversations').select('id,contact:wa_contacts(name)').eq('id', b.conversation).maybeSingle(),
+          db.from('wa_messages').select('direction,message_type,body,provider_timestamp,created_at')
+            .eq('conversation_id', b.conversation).order('created_at', {ascending: false}).limit(40),
+        ]);
+        if (co.error || !co.data) return reply({error: 'Não foi possível carregar a empresa.'}, 400);
+        if (!conv.data) return reply({error: 'Conversa não encontrada.'}, 404);
+        const agente = lerAgente(co.data.settings);
+        if (!agente.enabled) return reply({error: 'Ative o agente de atendimento em Configurações.'}, 400);
+        const mensagens = (msgs.data || []).map(m => ({...m, at: m.provider_timestamp || m.created_at})).sort((x, y) => x.at.localeCompare(y.at));
+        try {
+          const contato = (conv.data as any).contact?.name || '';
+          const sugestao = await sugerirResposta({empresa: co.data.name, nicho: co.data.niche, agente, contato, mensagens});
+          return reply({ok: true, sugestao});
+        } catch (e) {
+          return reply({error: e instanceof ErroAgente ? e.message : 'Não foi possível sugerir agora.'}, 502);
+        }
       }
       case 'consent': {
         if (!isUuid(b.contact)) return reply({error: 'Dados inválidos'}, 400);

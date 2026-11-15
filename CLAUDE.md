@@ -21,6 +21,7 @@ CRM próprio da Viestro Assessoria, reaproveitável para qualquer nicho (clínic
 - `app/api/whatsapp` — enviar texto/template, consentimento, criar lead, marcar lida (`crm_wa_*`).
 - `app/api/webhooks/whatsapp/[key]` — entrada da Meta via EasyCoexistence (`wa_ingest`). `app/api/webhooks/meta` — webhook Instagram/WhatsApp antigo (HMAC).
 - `app/api/mcp/[chave]` — conector do Claude (MCP, só leitura): `lib/mcp-protocolo.mjs` (JSON-RPC), `lib/mcp-chave.mjs` (endereço secreto por empresa = HMAC da `SUPABASE_SECRET_KEY`; `CRM_MCP_ROTACAO` troca todos, `CRM_MCP_DESLIGADO=1` desliga), `lib/mcp-ferramentas.ts` (7 consultas, sempre filtradas por `company_id`). Endereço para o admin: `app/api/conector-claude` + `components/claude-connector.tsx` (Configurações).
+- Agente de atendimento (modo sugestão): `lib/agente.mjs` (regras e prompt, testado), `lib/agente-ia.ts` (chamada ao Claude; `ANTHROPIC_API_KEY`, `CRM_AGENTE_MODELO` padrão Haiku 5.5), ação `suggest` em `app/api/whatsapp`, botão Sugerir + sugestão automática ao abrir conversa esperando resposta em `components/whatsapp-inbox.tsx`, configuração em `components/agent-settings.tsx` (salva em `settings.agent`, validada por `agenteValido`). Demo: `waDemoSugestoes` em `lib/whatsapp-demo.ts`.
 - `app/api/capture` — entrada externa de leads por token. `app/api/worker`, `app/api/whatsapp/worker` — filas (`lib/worker.ts`, `lib/whatsapp-worker.ts`).
 - `lib/supabase/server.ts` — cliente Supabase (URL/chave padrão da instalação Viestro). `lib/export.ts` — exportar planilha (CSV `;`). `lib/whatsapp.mjs`, `lib/whatsapp-metrics.mjs`, `lib/meta.mjs` — regras testadas.
 - `lib/demo*.ts`, `lib/*-demo.ts` — dados fictícios do modo demonstração (`/?demo=petshop`).
@@ -40,6 +41,7 @@ CRM próprio da Viestro Assessoria, reaproveitável para qualquer nicho (clínic
 - 2026-10 — Aba Financeiro controla entradas **e** despesas por mês (modelo CredFaz); mover oportunidade para Ganho sugere lançamento.
 - 2026-10 — Demonstração de pet shop em `/?demo=petshop` para vendas.
 - 2026-11-14 — Conector do Claude (MCP) só de consulta; ações (enviar mensagem, mover lead) só depois, com confirmação. Próximo: agente do WhatsApp em modo sugestão.
+- 2026-11-15 — Agente do WhatsApp começa em modo sugestão (a equipe revisa e envia); configuração em `settings.agent` sem migration. Próximo: modo automático para dúvidas simples, com passagem para humano.
 - 2026-10 — Primeira implantação planejada: clínica (reativação de pacientes antigos); manter o CRM genérico para outros nichos.
 
 ## Erros já resolvidos
