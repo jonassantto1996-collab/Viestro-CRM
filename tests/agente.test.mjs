@@ -10,7 +10,7 @@ test('configuração do agente: valida tamanhos, tom, modo e exige base para ati
   assert.equal(agenteValido({...base, knowledge: 'curta'}), false);
   assert.equal(agenteValido({...base, enabled: false, knowledge: ''}), true);
   assert.equal(agenteValido({...base, tone: 'agressivo'}), false);
-  assert.equal(agenteValido({...base, mode: 'automatico'}), false);
+  assert.equal(agenteValido({...base, mode: 'automatico'}), true);
   assert.equal(agenteValido({...base, name: ''}), false);
   assert.equal(agenteValido({...base, knowledge: 'x'.repeat(8001)}), false);
   assert.equal(agenteValido([]), false);
@@ -44,4 +44,37 @@ test('sugestão do modelo é normalizada e nunca confiada', () => {
   const h = lerSugestao({resposta: 'Vou chamar a equipe', precisa_humano: true, motivo_humano: 'dor forte', intencao: 'duvida'});
   assert.equal(h.precisa_humano, true);
   assert.equal(h.motivo_humano, 'dor forte');
+});
+
+import {dentroDoExpediente, respondeSozinho} from '../lib/agente.mjs';
+
+test('modo automático: valida opções de horário e decide quando responder sozinho', () => {
+  const auto = {...base, mode: 'automatico', auto_when: 'sempre'};
+  assert.equal(agenteValido(auto), true);
+  assert.equal(agenteValido({...auto, mode: 'robo'}), false);
+  assert.equal(agenteValido({...auto, auto_when: 'as vezes'}), false);
+  assert.equal(agenteValido({...auto, office_start: '25:00'}), false);
+  assert.equal(agenteValido({...auto, office_start: '18:00', office_end: '08:00'}), false);
+  // Terça 15/09/2026, 10h em Brasília (13h UTC) = expediente; 21h = fora; domingo = fora
+  const tercaManha = new Date('2026-09-15T13:00:00Z'), tercaNoite = new Date('2026-09-16T00:00:00Z'), domingo = new Date('2026-09-13T13:00:00Z');
+  const sabado = new Date('2026-09-19T13:00:00Z');
+  assert.equal(dentroDoExpediente(auto, tercaManha), true);
+  assert.equal(dentroDoExpediente(auto, tercaNoite), false);
+  assert.equal(dentroDoExpediente(auto, domingo), false);
+  assert.equal(dentroDoExpediente(auto, sabado), false);
+  assert.equal(dentroDoExpediente({...auto, office_days: 'seg-sab'}, sabado), true);
+  assert.equal(respondeSozinho(auto, tercaManha), true);
+  const fora = {...auto, auto_when: 'fora_expediente'};
+  assert.equal(respondeSozinho(fora, tercaManha), false);
+  assert.equal(respondeSozinho(fora, tercaNoite), true);
+  assert.equal(respondeSozinho({...auto, mode: 'sugestao'}, tercaNoite), false);
+  assert.equal(respondeSozinho({...auto, enabled: false}, tercaNoite), false);
+});
+
+test('pedido automático avisa que não há revisão humana', () => {
+  const a = montarPedido({empresa: 'X', nicho: 'y', agente: base, contato: '', mensagens: [], automatico: true});
+  const s = montarPedido({empresa: 'X', nicho: 'y', agente: base, contato: '', mensagens: []});
+  assert.ok(a.sistema.includes('ENVIADA AUTOMATICAMENTE'));
+  assert.ok(!s.sistema.includes('ENVIADA AUTOMATICAMENTE'));
+  assert.ok(s.sistema.includes('vai revisar antes de enviar'));
 });

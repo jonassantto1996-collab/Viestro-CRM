@@ -63,7 +63,7 @@ export default function WhatsAppMetrics({demo, members, onAwaiting}: Props) {
 
   const name = useMemo(() => new Map(members.map(m => [m.id, m.name])), [members]);
   const m = data;
-  const sent = m ? m.sentCrm + m.sentPhone : 0;
+  const sent = m ? m.sentCrm + m.sentPhone + (m.sentAgent || 0) : 0;
   const maxCat = m ? Math.max(1, ...m.byCategory.map(x => x.count)) : 1;
   const maxWho = m ? Math.max(1, ...m.byAssignee.map(x => x.count)) : 1;
 
@@ -126,7 +126,7 @@ export default function WhatsAppMetrics({demo, members, onAwaiting}: Props) {
           </div>
           <div className="chart-bottom">
             <Smartphone size={16} />
-            <span>{m ? `${sent} enviadas: ${m.sentCrm} pelo CRM e ${m.sentPhone} pelo celular` : 'Carregando…'}</span>
+            <span>{m ? `${sent} enviadas: ${m.sentCrm} pelo CRM, ${m.sentPhone} pelo celular${m.sentAgent ? ` e ${m.sentAgent} pelo agente` : ''}` : 'Carregando…'}</span>
           </div>
         </section>
 

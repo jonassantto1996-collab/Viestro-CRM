@@ -5,7 +5,7 @@ import {FERRAMENTA, lerSugestao, montarPedido} from '@/lib/agente.mjs';
 // Modelo barato por padrão; CRM_AGENTE_MODELO troca sem mexer no código.
 export class ErroAgente extends Error {}
 
-type Entrada = {empresa: string; nicho: string; agente: Record<string, unknown>; contato: string; mensagens: {direction: string; message_type: string; body: string | null; at: string}[]};
+type Entrada = {empresa: string; nicho: string; agente: Record<string, unknown>; contato: string; mensagens: {direction: string; message_type: string; body: string | null; at: string}[]; automatico?: boolean};
 
 export async function sugerirResposta(entrada: Entrada) {
   const chave = process.env.ANTHROPIC_API_KEY;
@@ -37,7 +37,7 @@ export async function sugerirResposta(entrada: Entrada) {
   const bloco = (d?.content || []).find((b: any) => b.type === 'tool_use' && b.name === FERRAMENTA.name);
   const sugestao = lerSugestao(bloco?.input);
   // Registro sem conteúdo: só modelo e consumo, para acompanhar custo.
-  console.log(`[agente] sugestao modelo=${modelo} ok=${!!sugestao} entrada=${d?.usage?.input_tokens ?? '?'} cache=${d?.usage?.cache_read_input_tokens ?? 0} saida=${d?.usage?.output_tokens ?? '?'}`);
+  console.log(`[agente] ${entrada.automatico ? 'automatico' : 'sugestao'} modelo=${modelo} ok=${!!sugestao} entrada=${d?.usage?.input_tokens ?? '?'} cache=${d?.usage?.cache_read_input_tokens ?? 0} saida=${d?.usage?.output_tokens ?? '?'}`);
   if (!sugestao) throw new ErroAgente('A IA não conseguiu sugerir uma resposta para esta conversa.');
   return sugestao;
 }

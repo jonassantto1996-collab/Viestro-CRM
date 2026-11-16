@@ -2,7 +2,7 @@
 import {useCallback, useEffect, useMemo, useRef, useState} from 'react';
 import {
   AlertTriangle, ArrowLeft, Check, CheckCheck, Clock, FileText, Info, Lock, MessageCircle, Phone,
-  Search, Send, ShieldCheck, Smartphone, Sparkles, User, UserPlus, Users,
+  Bot, Search, Send, ShieldCheck, Smartphone, Sparkles, User, UserPlus, Users,
 } from 'lucide-react';
 import {Select, SelectTrigger, SelectValue, SelectContent, SelectItem} from '@/components/ui/select';
 import {Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription} from '@/components/ui/dialog';
@@ -19,6 +19,7 @@ type Props = {
   onLeadCreated?: () => Promise<void> | void;
   initialFilter?: string;
   agent?: boolean;
+  agentMode?: 'sugestao' | 'automatico' | null;
 };
 
 // Tipos de atendimento: sugestões + os que a empresa já usa (cada empresa cria os seus digitando)
@@ -60,7 +61,7 @@ const ERRORS: Record<string, string> = {
   '132015': 'Template pausado pela Meta por baixa qualidade.',
   '132016': 'Template desativado pela Meta.',
 };
-const SOURCE: Record<string, string> = {crm: 'Pelo CRM', app_echo: 'Pelo celular', history_sync: '', api_inbound: ''};
+const SOURCE: Record<string, string> = {crm: 'Pelo CRM', app_echo: 'Pelo celular', agent: 'Agente', history_sync: '', api_inbound: ''};
 
 const initials = (s: string) => s.split(' ').filter(w => /^\p{L}/u.test(w)).map(p => p[0]).slice(0, 2).join('').toUpperCase();
 const contactName = (c: any) => c?.contact?.name || phone(c?.contact?.phone_e164) || 'Contato';
@@ -140,7 +141,11 @@ function Status({m}: {m: any}) {
 type Sugestao = {resposta: string; precisa_humano: boolean; motivo_humano: string; intencao: string; agendamento: Record<string, string> | null};
 const esperando = (c: any) => !!c?.last_inbound_at && (!c.last_outbound_at || c.last_inbound_at > c.last_outbound_at);
 
-export default function WhatsAppInbox({demo, members, me, onOpenLead, onLeadCreated, initialFilter, agent = false}: Props) {
+// Estado do agente automático numa conversa (vem de wa_agent_state)
+const agentState = (c: any) => (Array.isArray(c?.agent) ? c.agent[0] : c?.agent) || null;
+const agentPaused = (c: any) => { const s = agentState(c); return !!s?.paused_until && (s.paused_until === 'infinity' || new Date(s.paused_until) > new Date()); };
+
+export default function WhatsAppInbox({demo, members, me, onOpenLead, onLeadCreated, initialFilter, agent = false, agentMode = null}: Props) {
   const seed = useMemo(() => (demo ? waDemo() : null), [demo]);
   const [conversations, setConversations] = useState<any[]>(seed?.conversations || []);
   const [demoMessages, setDemoMessages] = useState<Record<string, any[]>>(seed?.messages || {});
@@ -250,12 +255,27 @@ export default function WhatsAppInbox({demo, members, me, onOpenLead, onLeadCrea
     }
   }
 
+  const [togglingAgent, setTogglingAgent] = useState(false);
+  async function toggleAgent(c: any, pausar: boolean) {
+    setTogglingAgent(true);
+    try {
+      if (!demo) await call({action: 'agent_toggle', conversation: c.id, pause: pausar});
+      const estado = {paused_until: pausar ? 'infinity' : null, paused_reason: pausar ? 'Pausado pela equipe' : null, handoff_at: pausar ? agentState(c)?.handoff_at ?? null : null};
+      setConversations(list => list.map(x => x.id === c.id ? {...x, agent: [estado]} : x));
+      toast.success(pausar ? 'Agente pausado nesta conversa.' : 'Agente reativado nesta conversa.');
+    } catch (e: any) {
+      toast.error(e.message);
+    } finally {
+      setTogglingAgent(false);
+    }
+  }
+
   async function openConversation(c: any) {
     setSelectedId(c.id);
     abertaRef.current = c.id;
     setSugestao(null);
     setText('');
-    if (agent && esperando(c) && windowLeft(c.service_window_expires_at)) sugerir(c);
+    if (agent && agentMode !== 'automatico' && esperando(c) && windowLeft(c.service_window_expires_at)) sugerir(c);
     // No celular a conversa ocupa a tela inteira: rola até ela para o campo de resposta ficar visível.
     if (window.matchMedia('(max-width: 900px)').matches) requestAnimationFrame(() => rootRef.current?.scrollIntoView({block: 'start'}));
     if (!demo) setMessages([]);
@@ -444,6 +464,7 @@ export default function WhatsAppInbox({demo, members, me, onOpenLead, onLeadCrea
                 <span className="wa-item-tags">
                   {awaiting(c) && c.status !== 'resolved' && <span className="wa-tag awaiting">Aguardando resposta</span>}
                   {c.status === 'pending' && <span className="wa-tag">Pendente</span>}
+                  {agentMode === 'automatico' && agentPaused(c) && agentState(c)?.handoff_at && <span className="wa-tag agent">Agente passou para a equipe</span>}
                   {c.status === 'resolved' && <span className="wa-tag done">Resolvida</span>}
                   {c.category && <span className="wa-tag cat">{c.category}</span>}
                   {c.assigned_user_id && <span className="wa-tag who"><Users size={11} />{memberName(c.assigned_user_id) || 'Equipe'}</span>}
@@ -482,6 +503,18 @@ export default function WhatsAppInbox({demo, members, me, onOpenLead, onLeadCrea
               </span>
               <button className="button secondary wa-details-btn" onClick={() => setDetailsOpen(true)}><Info size={15} /> Detalhes</button>
             </header>
+
+            {agentMode === 'automatico' && (
+              <div className={'wa-agent-bar' + (agentPaused(selected) ? ' paused' : '')} role="status">
+                <Bot size={14} />
+                {agentPaused(selected)
+                  ? <span>Agente pausado nesta conversa{agentState(selected)?.paused_reason ? `: ${agentState(selected).paused_reason}` : ''}.</span>
+                  : <span>O agente responde sozinho nesta conversa. Ele fica 12 h em silêncio se alguém da equipe responder.</span>}
+                <button disabled={togglingAgent} onClick={() => toggleAgent(selected, !agentPaused(selected))}>
+                  {agentPaused(selected) ? 'Reativar agente' : 'Pausar agente'}
+                </button>
+              </div>
+            )}
 
             <div className="wa-messages" key={selected.id}>
               {thread.some((m: any) => m.source === 'history_sync') && (

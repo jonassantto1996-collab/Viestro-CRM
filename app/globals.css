@@ -447,3 +447,25 @@ body {
 .agent-mode{display:flex;flex-direction:column;gap:3px;border:1px dashed #2f4b6c;border-radius:8px;padding:12px 14px;margin-bottom:6px}
 .agent-mode strong{font-size:13px;color:#d4e3f7}
 .agent-mode span{font-size:12px;color:#86a0bf}
+.agent-modes{display:grid;grid-template-columns:1fr 1fr;gap:10px}
+.agent-mode-card{display:flex;flex-direction:column;align-items:flex-start;gap:4px;text-align:left;border:1px solid #2a3b54;border-radius:9px;background:#0a1626;color:#c3d1e5;padding:12px 14px;cursor:pointer;font:inherit}
+.agent-mode-card svg{color:#7cbaff;margin-bottom:2px}
+.agent-mode-card strong{font-size:14px;color:#edf2fa}
+.agent-mode-card span{font-size:12px;line-height:1.45;color:#86a0bf}
+.agent-mode-card.on{border-color:#4a9eff;background:#10243d;box-shadow:0 0 0 1px #4a9eff inset}
+.agent-mode-card:disabled{cursor:default;opacity:.7}
+.agent-auto{border:1px solid #233651;border-radius:9px;padding:14px 14px 4px;margin:0 0 16px;background:#0b1828}
+.agent-auto>.field{margin:0 0 14px}
+.agent-office{grid-template-columns:1.4fr 1fr 1fr}
+.agent-office input[type=time]{color-scheme:dark}
+.agent-safety{list-style:none;margin:0 0 10px;padding:0;display:grid;gap:7px}
+.agent-safety li{display:flex;gap:8px;font-size:12.5px;line-height:1.45;color:#a9bdd6}
+.agent-safety svg{flex:none;margin-top:2px;color:#3dd68c}
+.wa-agent-bar{display:flex;align-items:center;gap:8px;flex-wrap:wrap;font-size:12.5px;color:#a9c9ef;background:#0f2238;border-bottom:1px solid #1f3552;padding:7px 14px}
+.wa-agent-bar svg{color:#7cbaff;flex:none}
+.wa-agent-bar.paused{color:#e6c27a;background:#1f1a12}
+.wa-agent-bar.paused svg{color:#e6c27a}
+.wa-agent-bar button{margin-left:auto;border:1px solid #2f4b6c;background:transparent;color:#d6e7fb;border-radius:6px;padding:3px 10px;font:inherit;font-size:12px;cursor:pointer}
+.wa-agent-bar button:hover{background:#163051}
+.wa-tag.agent{background:#2a2414;color:#e6c27a}
+@media (max-width:700px){.agent-modes{grid-template-columns:1fr}.agent-office{grid-template-columns:1fr 1fr}.agent-office>.field:first-child{grid-column:1/-1}}

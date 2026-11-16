@@ -1,6 +1,7 @@
 import 'server-only';
 import {serviceClient} from './supabase/server';
 import {buildSendBody, classifyGraphResponse, classifyNetworkError, graphBase} from './whatsapp.mjs';
+import {algumaEmpresaNoAutomatico, runAgent} from './agente-runner';
 
 type OutboxJob = {id: string; lease_token: string; kind: string; payload: any; account_id: string; phone_number_id: string; to_wa_id: string};
 
@@ -62,6 +63,22 @@ export async function drainOutbox() {
 /** Usado após webhooks e envios: falhas ficam na fila para a próxima rodada. */
 export async function drainAll() {
   try { await drainEvents(); } catch { console.error('WhatsApp: eventos pendentes para a próxima rodada'); }
+  try { await drainOutbox(); } catch { console.error('WhatsApp: envios pendentes para a próxima rodada'); }
+}
+
+/**
+ * Depois de chegar mensagem de cliente: processa, espera o cliente terminar de digitar e deixa o
+ * agente automático responder (se alguma empresa o ativou). Mensagens seguidas disparam várias
+ * rodadas, mas o banco garante uma só resposta para a última mensagem.
+ */
+export async function drainAllWithAgent() {
+  try { await drainEvents(); } catch { console.error('WhatsApp: eventos pendentes para a próxima rodada'); }
+  try {
+    if (await algumaEmpresaNoAutomatico()) {
+      await new Promise(r => setTimeout(r, 9_000));
+      await runAgent();
+    }
+  } catch { console.error('[agente] rodada automática adiada'); }
   try { await drainOutbox(); } catch { console.error('WhatsApp: envios pendentes para a próxima rodada'); }
 }
 
