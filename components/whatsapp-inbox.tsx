@@ -2,7 +2,7 @@
 import {useCallback, useEffect, useMemo, useRef, useState} from 'react';
 import {
   AlertTriangle, ArrowLeft, Check, CheckCheck, Clock, FileText, Info, Lock, MessageCircle, Phone,
-  Bot, Search, Send, ShieldCheck, Smartphone, Sparkles, User, UserPlus, Users,
+  Bot, Mic, Search, Send, ShieldCheck, Smartphone, Sparkles, User, UserPlus, Users,
 } from 'lucide-react';
 import {Select, SelectTrigger, SelectValue, SelectContent, SelectItem} from '@/components/ui/select';
 import {Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription} from '@/components/ui/dialog';
@@ -529,6 +529,8 @@ export default function WhatsAppInbox({demo, members, me, onOpenLead, onLeadCrea
                     <div className={'wa-msg ' + m.direction + (m.message_status === 'failed' ? ' failed' : '')}>
                       {m.template_name && <span className="wa-msg-tpl"><FileText size={12} /> Template · {m.template_name}</span>}
                       <p>{m.body || `[${m.message_type}]`}</p>
+                      {m.message_type === 'audio' && m.transcript && <p className="wa-transcript"><Mic size={12} /> {m.transcript}</p>}
+                      {m.message_type === 'audio' && m.transcript_status === 'running' && <p className="wa-transcript pending"><Mic size={12} /> Transcrevendo…</p>}
                       <span className="wa-msg-meta">
                         {SOURCE[m.source] && <em>{m.source === 'app_echo' && <Smartphone size={11} />}{SOURCE[m.source]}{m.source === 'crm' && memberName(m.sent_by_user_id) ? ` · ${memberName(m.sent_by_user_id)}` : ''}</em>}
                         <time>{new Date(m.at).toLocaleTimeString('pt-BR', {hour: '2-digit', minute: '2-digit'})}</time>

@@ -2,6 +2,7 @@ import 'server-only';
 import {serviceClient} from './supabase/server';
 import {buildSendBody, classifyGraphResponse, classifyNetworkError, graphBase} from './whatsapp.mjs';
 import {algumaEmpresaNoAutomatico, runAgent} from './agente-runner';
+import {transcreverPendentes} from './transcricao';
 
 type OutboxJob = {id: string; lease_token: string; kind: string; payload: any; account_id: string; phone_number_id: string; to_wa_id: string};
 
@@ -73,12 +74,15 @@ export async function drainAll() {
  */
 export async function drainAllWithAgent() {
   try { await drainEvents(); } catch { console.error('WhatsApp: eventos pendentes para a próxima rodada'); }
-  try {
-    if (await algumaEmpresaNoAutomatico()) {
-      await new Promise(r => setTimeout(r, 4_000));
-      await runAgent();
-    }
-  } catch { console.error('[agente] rodada automática adiada'); }
+  const automatico = await algumaEmpresaNoAutomatico().catch(() => false);
+  // Transcreve áudios enquanto espera o cliente terminar de mandar mensagens
+  await Promise.all([
+    transcreverPendentes().catch(() => console.error('[transcricao] rodada adiada')),
+    automatico ? new Promise(r => setTimeout(r, 4_000)) : null,
+  ]);
+  if (automatico) {
+    try { await runAgent(); } catch { console.error('[agente] rodada automática adiada'); }
+  }
   try { await drainOutbox(); } catch { console.error('WhatsApp: envios pendentes para a próxima rodada'); }
 }
 

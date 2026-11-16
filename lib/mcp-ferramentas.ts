@@ -97,12 +97,12 @@ export function criarFerramentas(db: SupabaseClient, empresaId: string): Ferrame
   }
 
   async function mensagens(conversaId: string, limite: number) {
-    const {data, error} = await db.from('wa_messages').select('direction,message_type,body,provider_timestamp,created_at')
+    const {data, error} = await db.from('wa_messages').select('direction,message_type,body,transcript,provider_timestamp,created_at')
       .eq('company_id', empresaId).eq('conversation_id', conversaId)
       .not('message_type', 'in', `(${IGNORAR_WA.join(',')})`)
       .order('created_at', {ascending: false}).limit(limite);
     if (error) throw error;
-    return (data || []).map(m => ({em: m.provider_timestamp || m.created_at, de: m.direction === 'outbound' ? 'Viestro' : 'Cliente', texto: corta(textoMensagem(m.message_type, m.body), 1500)}))
+    return (data || []).map(m => ({em: m.provider_timestamp || m.created_at, de: m.direction === 'outbound' ? 'Viestro' : 'Cliente', texto: corta(m.message_type === 'audio' && m.transcript ? `[Áudio, transcrição] ${m.transcript}` : textoMensagem(m.message_type, m.body), 1500)}))
       .sort((a, b) => a.em.localeCompare(b.em)).map(m => ({...m, em: dataHora(m.em)}));
   }
 

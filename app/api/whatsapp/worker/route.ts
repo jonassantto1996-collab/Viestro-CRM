@@ -2,6 +2,7 @@ import {timingSafeEqual} from 'node:crypto';
 import {reply} from '@/lib/http';
 import {drainEvents, drainOutbox} from '@/lib/whatsapp-worker';
 import {runAgent} from '@/lib/agente-runner';
+import {transcreverPendentes} from '@/lib/transcricao';
 
 export const dynamic = 'force-dynamic';
 
@@ -15,8 +16,9 @@ export async function GET(req: Request) {
   }
   try {
     const events = await drainEvents();
+    const audios = await transcreverPendentes().catch(() => null);
     const agente = await runAgent().catch(() => null);
-    return reply({events, agente, outbox: await drainOutbox()});
+    return reply({events, audios, agente, outbox: await drainOutbox()});
   } catch {
     return reply({error: 'Worker indisponível'}, 503);
   }

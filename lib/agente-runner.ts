@@ -44,7 +44,7 @@ export async function runAgent() {
 
       const [conv, msgs] = await Promise.all([
         db.from('wa_conversations').select('contact:wa_contacts(name)').eq('id', c.conversation_id).eq('company_id', c.company_id).single(),
-        db.from('wa_messages').select('direction,message_type,body,provider_timestamp,created_at')
+        db.from('wa_messages').select('direction,message_type,body,transcript,provider_timestamp,created_at')
           .eq('company_id', c.company_id).eq('conversation_id', c.conversation_id).order('created_at', {ascending: false}).limit(40),
       ]);
       const mensagens = (msgs.data || []).filter(m => !IGNORAR.has(m.message_type))
