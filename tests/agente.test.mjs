@@ -107,3 +107,10 @@ test('áudio transcrito entra na conversa como texto para o agente', () => {
   assert.ok(usuario.includes('[enviou áudio, sem texto]'));
   assert.ok(sistema.includes('Áudios chegam já transcritos'));
 });
+
+test('regra de cumprimento pelo horário de Brasília está nas instruções', () => {
+  const {sistema} = montarPedido({empresa: 'X', nicho: 'y', agente: base, contato: '', mensagens: [], agora: new Date('2026-11-16T13:26:00Z')});
+  assert.ok(sistema.includes('"Bom dia" das 5h às 11h59'));
+  assert.ok(sistema.includes('mesmo que o cliente tenha usado outro'));
+  assert.ok(/10:26/.test(sistema)); // hora de Brasília (UTC-3) vai junto
+});
