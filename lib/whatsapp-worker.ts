@@ -75,7 +75,7 @@ export async function drainAllWithAgent() {
   try { await drainEvents(); } catch { console.error('WhatsApp: eventos pendentes para a próxima rodada'); }
   try {
     if (await algumaEmpresaNoAutomatico()) {
-      await new Promise(r => setTimeout(r, 9_000));
+      await new Promise(r => setTimeout(r, 4_000));
       await runAgent();
     }
   } catch { console.error('[agente] rodada automática adiada'); }

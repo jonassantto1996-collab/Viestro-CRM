@@ -78,3 +78,22 @@ test('pedido automático avisa que não há revisão humana', () => {
   assert.ok(!s.sistema.includes('ENVIADA AUTOMATICAMENTE'));
   assert.ok(s.sistema.includes('vai revisar antes de enviar'));
 });
+
+test('não cumprimenta de novo quando a empresa já respondeu há pouco', () => {
+  const agora = new Date('2026-11-16T02:10:00Z');
+  const comResposta = montarPedido({empresa: 'X', nicho: 'y', agente: base, contato: 'Jonas', agora, mensagens: [
+    {direction: 'inbound', message_type: 'text', body: 'Fazem loja virtual?', at: '2026-11-16T02:08:50Z'},
+    {direction: 'outbound', message_type: 'text', body: 'Olá, Jonas! Fazemos sim.', at: '2026-11-16T02:09:05Z'},
+    {direction: 'inbound', message_type: 'text', body: 'E automação?', at: '2026-11-16T02:09:48Z'},
+  ]});
+  assert.ok(comResposta.usuario.includes('NÃO comece com cumprimento'));
+  const primeira = montarPedido({empresa: 'X', nicho: 'y', agente: base, contato: 'Jonas', agora, mensagens: [
+    {direction: 'inbound', message_type: 'text', body: 'Oi', at: '2026-11-16T02:09:48Z'},
+  ]});
+  assert.ok(!primeira.usuario.includes('NÃO comece com cumprimento'));
+  const antiga = montarPedido({empresa: 'X', nicho: 'y', agente: base, contato: 'Jonas', agora, mensagens: [
+    {direction: 'outbound', message_type: 'text', body: 'Até amanhã', at: '2026-11-15T10:00:00Z'},
+    {direction: 'inbound', message_type: 'text', body: 'Bom dia', at: '2026-11-16T02:09:48Z'},
+  ]});
+  assert.ok(!antiga.usuario.includes('NÃO comece com cumprimento'));
+});
