@@ -469,3 +469,6 @@ body {
 .wa-agent-bar button:hover{background:#163051}
 .wa-tag.agent{background:#2a2414;color:#e6c27a}
 @media (max-width:700px){.agent-modes{grid-template-columns:1fr}.agent-office{grid-template-columns:1fr 1fr}.agent-office>.field:first-child{grid-column:1/-1}}
+.wa-transcript{display:flex;gap:6px;align-items:flex-start;margin-top:6px;padding-top:6px;border-top:1px solid #ffffff14;font-size:12.5px;line-height:1.5;color:#b9cbe2;font-style:italic}
+.wa-transcript svg{flex:none;margin-top:3px;color:#7cbaff}
+.wa-transcript.pending{color:#86a0bf}

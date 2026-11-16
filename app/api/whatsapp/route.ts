@@ -36,7 +36,7 @@ export async function GET(req: Request) {
       const conversation = p.get('conversation');
       if (!isUuid(conversation)) return reply({error: 'Conversa inválida'}, 400);
       const {data, error} = await db.from('wa_messages')
-        .select('id,direction,source,message_type,body,template_name,message_status,error_code,sent_by_user_id,provider_timestamp,sent_at,delivered_at,read_at,created_at')
+        .select('id,direction,source,message_type,body,transcript,transcript_status,template_name,message_status,error_code,sent_by_user_id,provider_timestamp,sent_at,delivered_at,read_at,created_at')
         .eq('conversation_id', conversation).order('created_at', {ascending: false}).limit(500);
       if (error) throw error;
       const messages = (data || []).map(m => ({...m, at: m.provider_timestamp || m.created_at}))
@@ -153,7 +153,7 @@ export async function POST(req: Request) {
         const [co, conv, msgs] = await Promise.all([
           db.from('crm_companies').select('name,niche,settings').eq('id', member.company_id).single(),
           db.from('wa_conversations').select('id,contact:wa_contacts(name)').eq('id', b.conversation).maybeSingle(),
-          db.from('wa_messages').select('direction,message_type,body,provider_timestamp,created_at')
+          db.from('wa_messages').select('direction,message_type,body,transcript,provider_timestamp,created_at')
             .eq('conversation_id', b.conversation).order('created_at', {ascending: false}).limit(40),
         ]);
         if (co.error || !co.data) return reply({error: 'Não foi possível carregar a empresa.'}, 400);

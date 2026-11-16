@@ -5,7 +5,7 @@ import {FERRAMENTA, lerSugestao, montarPedido} from '@/lib/agente.mjs';
 // Modelo barato por padrão; CRM_AGENTE_MODELO troca sem mexer no código.
 export class ErroAgente extends Error {}
 
-type Entrada = {empresa: string; nicho: string; agente: Record<string, unknown>; contato: string; mensagens: {direction: string; message_type: string; body: string | null; at: string}[]; automatico?: boolean};
+type Entrada = {empresa: string; nicho: string; agente: Record<string, unknown>; contato: string; mensagens: {direction: string; message_type: string; body: string | null; transcript?: string | null; at: string}[]; automatico?: boolean};
 
 export async function sugerirResposta(entrada: Entrada) {
   const chave = process.env.ANTHROPIC_API_KEY;

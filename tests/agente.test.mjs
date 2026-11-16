@@ -97,3 +97,13 @@ test('não cumprimenta de novo quando a empresa já respondeu há pouco', () => 
   ]});
   assert.ok(!antiga.usuario.includes('NÃO comece com cumprimento'));
 });
+
+test('áudio transcrito entra na conversa como texto para o agente', () => {
+  const {usuario, sistema} = montarPedido({empresa: 'X', nicho: 'y', agente: base, contato: '', mensagens: [
+    {direction: 'inbound', message_type: 'audio', body: '[Áudio]', transcript: 'Quero marcar uma limpeza no sábado', at: '2026-11-16T02:09:48Z'},
+    {direction: 'inbound', message_type: 'audio', body: '[Áudio]', transcript: null, at: '2026-11-16T02:10:48Z'},
+  ]});
+  assert.ok(usuario.includes('[mandou um áudio; transcrição automática] Quero marcar uma limpeza no sábado'));
+  assert.ok(usuario.includes('[enviou áudio, sem texto]'));
+  assert.ok(sistema.includes('Áudios chegam já transcritos'));
+});
