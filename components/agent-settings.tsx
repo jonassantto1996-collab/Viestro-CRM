@@ -56,8 +56,8 @@ export default function AgentSettings({company, admin, demo, onSave}: {company: 
       <small>Serviços, preços, horários, endereço, pagamento e perguntas frequentes. O agente nunca inventa o que não estiver aqui. {a.knowledge.length.toLocaleString('pt-BR')}/8.000</small>
     </label>
     <label className="field"><span>Como vender</span>
-      <textarea disabled={!admin} rows={7} maxLength={3000} placeholder={EXEMPLO_VENDA} value={a.sales || ''} onChange={e => set({sales: e.target.value})}/>
-      <small>O jeito da empresa conduzir a conversa: o que perguntar, como responder objeções e qual o próximo passo. Preços e fatos ficam na base de conhecimento. Opcional. {(a.sales || '').length.toLocaleString('pt-BR')}/3.000</small>
+      <textarea disabled={!admin} rows={7} maxLength={4000} placeholder={EXEMPLO_VENDA} value={a.sales || ''} onChange={e => set({sales: e.target.value})}/>
+      <small>O jeito da empresa conduzir a conversa: o que perguntar, como responder objeções e qual o próximo passo. Preços e fatos ficam na base de conhecimento. Opcional. {(a.sales || '').length.toLocaleString('pt-BR')}/4.000</small>
     </label>
     <label className="field"><span>Quando chamar a equipe</span>
       <textarea disabled={!admin} rows={3} maxLength={1500} placeholder="Ex.: dor ou urgência, orçamento de implante, pedido de desconto." value={a.handoff} onChange={e => set({handoff: e.target.value})}/>
