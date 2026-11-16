@@ -109,10 +109,16 @@ test('áudio transcrito entra na conversa como texto para o agente', () => {
 });
 
 test('regra de cumprimento pelo horário de Brasília está nas instruções', () => {
-  const {sistema} = montarPedido({empresa: 'X', nicho: 'y', agente: base, contato: '', mensagens: [], agora: new Date('2026-11-16T13:26:00Z')});
+  const {sistema, usuario} = montarPedido({empresa: 'X', nicho: 'y', agente: base, contato: '', mensagens: [], agora: new Date('2026-11-16T13:26:00Z')});
   assert.ok(sistema.includes('"Bom dia" das 5h às 11h59'));
   assert.ok(sistema.includes('mesmo que o cliente tenha usado outro'));
-  assert.ok(/10:26/.test(sistema)); // hora de Brasília (UTC-3) vai junto
+  assert.ok(/10:26/.test(usuario)); // hora de Brasília (UTC-3) vai junto, na mensagem
+});
+
+test('instruções não mudam com o horário (reaproveita a leitura em cache)', () => {
+  const p = h => montarPedido({empresa: 'X', nicho: 'y', agente: {...base, sales: 'Pergunte o objetivo.'}, contato: 'Ana', mensagens: [], agora: new Date(h)});
+  assert.equal(p('2026-11-16T13:26:00Z').sistema, p('2026-11-16T22:51:00Z').sistema);
+  assert.ok(!/\d{2}:\d{2}/.test(p('2026-11-16T13:26:00Z').sistema.replace(/\d+h59/g, '')));
 });
 
 test('campo "Como vender" é opcional, validado e entra separado da base', () => {
