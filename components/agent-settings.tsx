@@ -15,6 +15,12 @@ Formas de pagamento: Pix, cartão em até 3x.
 Convênios: ...
 Perguntas frequentes: ...`;
 
+const EXEMPLO_VENDA = `Antes de oferecer, entenda: o que o cliente procura e para quando.
+Faça uma pergunta por vez e mostre que entendeu o que ele disse.
+Se perguntar o preço logo de cara: explique do que depende e convide para a avaliação gratuita.
+Se disser "vou pensar": pergunte se ficou alguma dúvida, sem insistir.
+Próximo passo: sempre convidar para agendar a avaliação.`;
+
 // Configuração do agente de atendimento do WhatsApp (Configurações). Salva em settings.agent.
 export default function AgentSettings({company, admin, demo, onSave}: {company: any; admin: boolean; demo: boolean; onSave: (c: any) => Promise<void> | void}) {
   const [a, setA] = useState<any>({...AGENTE_PADRAO, ...(company.settings?.agent || {})});
@@ -23,7 +29,7 @@ export default function AgentSettings({company, admin, demo, onSave}: {company: 
   const set = (patch: any) => setA((x: any) => ({...x, ...patch}));
 
   async function salvar() {
-    const agente = {...a, name: a.name.trim(), knowledge: a.knowledge.trim(), handoff: a.handoff.trim()};
+    const agente = {...a, name: a.name.trim(), knowledge: a.knowledge.trim(), sales: (a.sales || '').trim(), handoff: a.handoff.trim()};
     if (!agenteValido(agente)) {
       toast.error(agente.enabled && agente.knowledge.length < 30 ? 'Escreva a base de conhecimento antes de ativar o agente.'
         : agente.office_start >= agente.office_end ? 'O horário de fechar precisa ser depois do de abrir.' : 'Revise o nome (até 40 letras) e os textos do agente.');
@@ -48,6 +54,10 @@ export default function AgentSettings({company, admin, demo, onSave}: {company: 
     <label className="field"><span>Base de conhecimento</span>
       <textarea disabled={!admin} rows={11} maxLength={8000} placeholder={EXEMPLO} value={a.knowledge} onChange={e => set({knowledge: e.target.value})}/>
       <small>Serviços, preços, horários, endereço, pagamento e perguntas frequentes. O agente nunca inventa o que não estiver aqui. {a.knowledge.length.toLocaleString('pt-BR')}/8.000</small>
+    </label>
+    <label className="field"><span>Como vender</span>
+      <textarea disabled={!admin} rows={7} maxLength={3000} placeholder={EXEMPLO_VENDA} value={a.sales || ''} onChange={e => set({sales: e.target.value})}/>
+      <small>O jeito da empresa conduzir a conversa: o que perguntar, como responder objeções e qual o próximo passo. Preços e fatos ficam na base de conhecimento. Opcional. {(a.sales || '').length.toLocaleString('pt-BR')}/3.000</small>
     </label>
     <label className="field"><span>Quando chamar a equipe</span>
       <textarea disabled={!admin} rows={3} maxLength={1500} placeholder="Ex.: dor ou urgência, orçamento de implante, pedido de desconto." value={a.handoff} onChange={e => set({handoff: e.target.value})}/>
