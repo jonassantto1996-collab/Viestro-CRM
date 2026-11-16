@@ -78,7 +78,7 @@ export async function drainAllWithAgent() {
   // Transcreve áudios enquanto espera o cliente terminar de mandar mensagens
   await Promise.all([
     transcreverPendentes().catch(() => console.error('[transcricao] rodada adiada')),
-    automatico ? new Promise(r => setTimeout(r, 4_000)) : null,
+    automatico ? new Promise(r => setTimeout(r, 2_500)) : null,
   ]);
   if (automatico) {
     try { await runAgent(); } catch { console.error('[agente] rodada automática adiada'); }
