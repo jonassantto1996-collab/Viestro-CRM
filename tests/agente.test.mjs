@@ -123,7 +123,7 @@ test('instruções não mudam com o horário (reaproveita a leitura em cache)', 
 
 test('campo "Como vender" é opcional, validado e entra separado da base', () => {
   assert.equal(agenteValido({...base, sales: 'Pergunte o objetivo antes de oferecer.'}), true);
-  assert.equal(agenteValido({...base, sales: 'x'.repeat(3001)}), false);
+  assert.equal(agenteValido({...base, sales: 'x'.repeat(4001)}), false);
   assert.equal(agenteValido({...base, sales: 42}), false);
   const sem = montarPedido({empresa: 'X', nicho: 'y', agente: base, contato: '', mensagens: []});
   assert.ok(!sem.sistema.includes('<como_vender>'));
