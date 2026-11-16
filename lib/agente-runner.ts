@@ -6,7 +6,7 @@ import {sugerirResposta} from '@/lib/agente-ia';
 // Modo automático do agente. Roda logo depois que uma mensagem do cliente chega (webhook)
 // e também no executor da fila. Quem decide se pode enviar é o banco (wa_agent_send), que
 // revalida tudo com a conversa travada: nunca responde duas vezes nem por cima da equipe.
-const ESPERA_DIGITANDO_S = 3; // espera o cliente terminar de mandar mensagens seguidas
+const ESPERA_DIGITANDO_S = 2; // espera o cliente terminar de mandar mensagens seguidas
 const IGNORAR = new Set(['revoke', 'edit', 'errors', 'reaction']);
 
 export async function algumaEmpresaNoAutomatico() {
