@@ -81,7 +81,7 @@ export async function GET(req: Request) {
     }
 
     let q = db.from('wa_conversations')
-      .select('id,status,category,unread_count,assigned_user_id,last_message_at,last_message_preview,last_inbound_at,last_outbound_at,first_inbound_at,first_response_at,service_window_expires_at,contact:wa_contacts(id,name,phone_e164,crm_lead_id,marketing_opt_out_at),account:wa_accounts(id,phone_e164,display_name,connection_status)')
+      .select('id,status,category,unread_count,assigned_user_id,last_message_at,last_message_preview,last_inbound_at,last_outbound_at,first_inbound_at,first_response_at,service_window_expires_at,contact:wa_contacts(id,name,phone_e164,crm_lead_id,marketing_opt_out_at),account:wa_accounts(id,phone_e164,display_name,connection_status),agent:wa_agent_state(paused_until,paused_reason,handoff_at)')
       .order('last_message_at', {ascending: false, nullsFirst: false}).limit(300);
     const status = p.get('status');
     if (status && ['open', 'pending', 'resolved'].includes(status)) q = q.eq('status', status);
@@ -138,6 +138,12 @@ export async function POST(req: Request) {
         if (!isUuid(b.conversation)) return reply({error: 'Dados inválidos'}, 400);
         const {data, error} = await db.rpc('crm_wa_create_lead', {p_conversation: b.conversation});
         return error ? dbError(error) : reply({ok: true, lead: data});
+      }
+      case 'agent_toggle': {
+        if (!isUuid(b.conversation) || typeof b.pause !== 'boolean') return reply({error: 'Dados inválidos'}, 400);
+        const {error} = await db.rpc('crm_wa_agent_toggle', {p_conversation: b.conversation, p_pause: b.pause});
+        if (error) return reply({error: 'Não foi possível alterar o agente nesta conversa.'}, 400);
+        return reply({ok: true});
       }
       case 'suggest': {
         // Agente em modo sugestão: só lê (pela sessão, com RLS da empresa) e devolve um texto; quem envia é a pessoa.

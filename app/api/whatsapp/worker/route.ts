@@ -1,6 +1,7 @@
 import {timingSafeEqual} from 'node:crypto';
 import {reply} from '@/lib/http';
 import {drainEvents, drainOutbox} from '@/lib/whatsapp-worker';
+import {runAgent} from '@/lib/agente-runner';
 
 export const dynamic = 'force-dynamic';
 
@@ -13,7 +14,9 @@ export async function GET(req: Request) {
     return reply({error: 'Não autorizado'}, 401);
   }
   try {
-    return reply({events: await drainEvents(), outbox: await drainOutbox()});
+    const events = await drainEvents();
+    const agente = await runAgent().catch(() => null);
+    return reply({events, agente, outbox: await drainOutbox()});
   } catch {
     return reply({error: 'Worker indisponível'}, 503);
   }

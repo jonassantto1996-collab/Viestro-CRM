@@ -2,7 +2,7 @@ import {after} from 'next/server';
 import {serviceClient} from '@/lib/supabase/server';
 import {reply} from '@/lib/http';
 import {keyMatches, normalizeWhatsApp} from '@/lib/whatsapp.mjs';
-import {drainAll} from '@/lib/whatsapp-worker';
+import {drainAll, drainAllWithAgent} from '@/lib/whatsapp-worker';
 
 export const dynamic = 'force-dynamic';
 
@@ -67,6 +67,7 @@ export async function POST(req: Request, {params}: Ctx) {
     });
     return reply({error: 'Indisponível'}, 503);
   }
-  after(drainAll);
+  // Mensagem de cliente pode precisar de resposta do agente automático
+  after(events.some((e: {type?: string}) => e.type === 'message') ? drainAllWithAgent : drainAll);
   return reply({received: true});
 }

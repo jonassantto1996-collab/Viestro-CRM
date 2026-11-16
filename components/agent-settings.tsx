@@ -1,6 +1,6 @@
 'use client';
 import {useEffect, useState} from 'react';
-import {Sparkles} from 'lucide-react';
+import {Bot, PenLine, ShieldCheck, Sparkles} from 'lucide-react';
 import {toast} from 'sonner';
 import {Switch} from '@/components/ui/switch';
 import {AGENTE_PADRAO, agenteValido} from '@/lib/agente.mjs';
@@ -25,7 +25,8 @@ export default function AgentSettings({company, admin, demo, onSave}: {company: 
   async function salvar() {
     const agente = {...a, name: a.name.trim(), knowledge: a.knowledge.trim(), handoff: a.handoff.trim()};
     if (!agenteValido(agente)) {
-      toast.error(agente.enabled && agente.knowledge.length < 30 ? 'Escreva a base de conhecimento antes de ativar o agente.' : 'Revise o nome (até 40 letras) e os textos do agente.');
+      toast.error(agente.enabled && agente.knowledge.length < 30 ? 'Escreva a base de conhecimento antes de ativar o agente.'
+        : agente.office_start >= agente.office_end ? 'O horário de fechar precisa ser depois do de abrir.' : 'Revise o nome (até 40 letras) e os textos do agente.');
       return;
     }
     setSalvando(true);
@@ -34,7 +35,7 @@ export default function AgentSettings({company, admin, demo, onSave}: {company: 
 
   return <section className="panel settings-panel agent-settings">
     <div className="panel-heading"><h2>Agente de atendimento</h2><Sparkles size={19}/></div>
-    <p>O agente lê a conversa do WhatsApp e escreve a resposta usando só o que estiver na base de conhecimento. Você revisa e envia com um clique.</p>
+    <p>O agente lê a conversa do WhatsApp e responde usando só o que estiver na base de conhecimento.</p>
     <label className="agent-toggle"><Switch checked={a.enabled} disabled={!admin} onCheckedChange={(v: boolean) => set({enabled: v})}/><span>{a.enabled ? 'Agente ativado' : 'Agente desativado'}</span></label>
     <div className="form-row">
       <label className="field"><span>Nome do assistente</span><input disabled={!admin} maxLength={40} value={a.name} onChange={e => set({name: e.target.value})}/></label>
@@ -52,7 +53,40 @@ export default function AgentSettings({company, admin, demo, onSave}: {company: 
       <textarea disabled={!admin} rows={3} maxLength={1500} placeholder="Ex.: dor ou urgência, orçamento de implante, pedido de desconto." value={a.handoff} onChange={e => set({handoff: e.target.value})}/>
       <small>Reclamações, pedidos para falar com uma pessoa e assuntos de saúde já vão sempre para a equipe.</small>
     </label>
-    <div className="agent-mode"><strong>Modo: sugestão</strong><span>O agente escreve, a equipe revisa e envia. Resposta automática: em breve.</span></div>
+    <div className="field"><span>Como o agente trabalha</span>
+      <div className="agent-modes" role="radiogroup" aria-label="Modo do agente">
+        <button type="button" role="radio" aria-checked={a.mode === 'sugestao'} disabled={!admin} className={'agent-mode-card' + (a.mode === 'sugestao' ? ' on' : '')} onClick={() => set({mode: 'sugestao'})}>
+          <PenLine size={17}/><strong>Sugestão</strong><span>O agente escreve a resposta e a equipe revisa e envia.</span>
+        </button>
+        <button type="button" role="radio" aria-checked={a.mode === 'automatico'} disabled={!admin} className={'agent-mode-card' + (a.mode === 'automatico' ? ' on' : '')} onClick={() => set({mode: 'automatico'})}>
+          <Bot size={17}/><strong>Automático</strong><span>O agente responde sozinho as dúvidas e passa para a equipe o que precisar.</span>
+        </button>
+      </div>
+    </div>
+    {a.mode === 'automatico' && <div className="agent-auto">
+      <label className="field"><span>Quando responder sozinho</span>
+        <select className="agent-select" disabled={!admin} value={a.auto_when} onChange={e => set({auto_when: e.target.value})}>
+          <option value="sempre">Sempre, a qualquer hora</option>
+          <option value="fora_expediente">Só fora do expediente</option>
+        </select>
+      </label>
+      {a.auto_when === 'fora_expediente' && <div className="form-row agent-office">
+        <label className="field"><span>Dias de expediente</span>
+          <select className="agent-select" disabled={!admin} value={a.office_days} onChange={e => set({office_days: e.target.value})}>
+            <option value="seg-sex">Segunda a sexta</option><option value="seg-sab">Segunda a sábado</option>
+          </select>
+        </label>
+        <label className="field"><span>Abre às</span><input type="time" disabled={!admin} value={a.office_start} onChange={e => set({office_start: e.target.value})}/></label>
+        <label className="field"><span>Fecha às</span><input type="time" disabled={!admin} value={a.office_end} onChange={e => set({office_end: e.target.value})}/></label>
+      </div>}
+      <ul className="agent-safety">
+        <li><ShieldCheck size={14}/>Responde só com o que está na base de conhecimento.</li>
+        <li><ShieldCheck size={14}/>Espera o cliente terminar de escrever antes de responder.</li>
+        <li><ShieldCheck size={14}/>Fica em silêncio por 12 horas na conversa em que alguém da equipe responder, pelo celular ou pelo CRM.</li>
+        <li><ShieldCheck size={14}/>Passa para a equipe (marca como Pendente) reclamações, assuntos de saúde, pedidos de desconto e o que estiver nas regras acima. No máximo 10 respostas por conversa por dia; depois disso, passa para a equipe.</li>
+        <li><ShieldCheck size={14}/>Dá para pausar o agente em qualquer conversa, na própria conversa.</li>
+      </ul>
+    </div>}
     {admin && <button className="button primary" disabled={salvando} onClick={salvar}>{salvando ? 'Salvando…' : demo ? 'Salvar na demonstração' : 'Salvar agente'}</button>}
   </section>;
 }
