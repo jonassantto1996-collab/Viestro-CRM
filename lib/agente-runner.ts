@@ -2,6 +2,8 @@ import 'server-only';
 import {serviceClient} from '@/lib/supabase/server';
 import {lerAgente, respondeSozinho, MAX_RESPOSTAS_DIA} from '@/lib/agente.mjs';
 import {sugerirResposta, resumirConversa} from '@/lib/agente-ia';
+import {ALERTA_MODELO, envioDoAlerta, deveAvisar, ehAtendente, telefoneDoAtendente} from '@/lib/alerta-atendente.mjs';
+import {buildSendBody, classifyGraphResponse, graphBase} from '@/lib/whatsapp.mjs';
 
 // Modo automático do agente. Roda logo depois que uma mensagem do cliente chega (webhook)
 // e também no executor da fila. Quem decide se pode enviar é o banco (wa_agent_send), que
@@ -19,24 +21,58 @@ export async function algumaEmpresaNoAutomatico() {
 type Db = ReturnType<typeof serviceClient>;
 async function lerConversa(db: Db, companyId: string, conversationId: string) {
   const [conv, msgs] = await Promise.all([
-    db.from('wa_conversations').select('contact:wa_contacts(name,crm_lead_id)').eq('id', conversationId).eq('company_id', companyId).single(),
+    db.from('wa_conversations').select('account_id,contact:wa_contacts(name,crm_lead_id,wa_id)').eq('id', conversationId).eq('company_id', companyId).single(),
     db.from('wa_messages').select('direction,message_type,body,transcript,provider_timestamp,created_at')
       .eq('company_id', companyId).eq('conversation_id', conversationId).order('created_at', {ascending: false}).limit(40),
   ]);
   const mensagens = (msgs.data || []).filter(m => !IGNORAR.has(m.message_type))
     .map(m => ({...m, at: m.provider_timestamp || m.created_at})).sort((x, y) => x.at.localeCompare(y.at));
-  return {contato: (conv.data as any)?.contact?.name || '', leadId: ((conv.data as any)?.contact?.crm_lead_id || null) as string | null, mensagens};
+  return {contato: (conv.data as any)?.contact?.name || '', leadId: ((conv.data as any)?.contact?.crm_lead_id || null) as string | null,
+    waId: ((conv.data as any)?.contact?.wa_id || null) as string | null, accountId: ((conv.data as any)?.account_id || null) as string | null, mensagens};
+}
+
+// Alerta no WhatsApp do atendente. Só sai com o modelo aprovado pela Meta no número da empresa;
+// sem modelo aprovado (ou sem telefone), não envia nada. Nunca registra telefone nem conteúdo em log.
+async function avisarAtendente(db: Db, accountId: string | null, telefone: string, payload: ReturnType<typeof envioDoAlerta>) {
+  if (!accountId) return false;
+  const [{data: modelo}, {data: conta}, {data: token}] = await Promise.all([
+    db.from('wa_templates').select('id').eq('account_id', accountId).eq('name', ALERTA_MODELO.name)
+      .eq('language', ALERTA_MODELO.language).eq('status', 'APPROVED').maybeSingle(),
+    db.from('wa_accounts').select('phone_number_id,connection_status').eq('id', accountId).maybeSingle(),
+    db.rpc('wa_account_token', {p_account: accountId}),
+  ]);
+  if (!modelo || !conta?.phone_number_id || conta.connection_status === 'disconnected' || !token) return false;
+  try {
+    const res = await fetch(`${graphBase(process.env.WHATSAPP_GRAPH_BASE)}/${conta.phone_number_id}/messages`, {
+      method: 'POST', headers: {Authorization: `Bearer ${token}`, 'Content-Type': 'application/json'},
+      body: JSON.stringify(buildSendBody('template', payload, telefone)), signal: AbortSignal.timeout(15000), cache: 'no-store',
+    });
+    const r = classifyGraphResponse(res.status, await res.json().catch(() => null));
+    if (!r.ok) console.error('[agente] alerta do atendente não enviado', {code: 'code' in r ? r.code : undefined});
+    return r.ok;
+  } catch {
+    console.error('[agente] alerta do atendente não enviado', {code: 'rede'});
+    return false;
+  }
 }
 
 // Lead quente: o agente passou para a equipe. O banco escolhe o atendente (alternado) e cria a tarefa;
 // aqui só se escreve o resumo. Falha aqui nunca desfaz a passagem (a conversa já está Pendente).
-async function passarParaAtendente(db: Db, empresa: string, conversationId: string, motivo: string,
+async function passarParaAtendente(db: Db, empresa: string, agente: Record<string, any>, conversationId: string, motivo: string,
   conversa: Awaited<ReturnType<typeof lerConversa>>, quente = false) {
   try {
     const resumo = await resumirConversa({empresa, contato: conversa.contato, motivo, mensagens: conversa.mensagens});
+    // Tarefa aberta antes desta passagem: decide se o atendente é avisado de novo.
+    const {data: antes} = await db.from('crm_records').select('data').eq('kind', 'tasks').eq('data->>source', 'agent_handoff')
+      .eq('data->>conversationId', conversationId).eq('data->>done', 'false').limit(1).maybeSingle();
     const {data, error} = await db.rpc('wa_agent_assign', {p_conversation: conversationId, p_summary: resumo, p_hot: quente});
     if (error) throw error;
-    return data as string | null;
+    const atendente = data as string | null;
+    const telefone = telefoneDoAtendente(agente, atendente);
+    if (telefone && deveAvisar({antes: antes ? {hot: (antes as any).data?.hot === true} : null, quente})) {
+      await avisarAtendente(db, conversa.accountId, telefone, envioDoAlerta({atendente, cliente: conversa.contato, motivo, quente}));
+    }
+    return atendente;
   } catch {
     console.error('[agente] lead passado sem atendente definido', {conversa: conversationId});
     return null;
@@ -67,12 +103,17 @@ export async function runAgent() {
         const motivo = 'Limite diário de respostas automáticas';
         await db.rpc('wa_agent_pause', {p_conversation: c.conversation_id, p_reason: motivo});
         equipe++;
-        if (await passarParaAtendente(db, empresa.name, c.conversation_id, motivo, await lerConversa(db, c.company_id, c.conversation_id))) atribuidos++;
+        if (await passarParaAtendente(db, empresa.name, agente, c.conversation_id, motivo, await lerConversa(db, c.company_id, c.conversation_id))) atribuidos++;
         continue;
       }
 
       const conversa = await lerConversa(db, c.company_id, c.conversation_id);
       const {mensagens, leadId} = conversa;
+      // Atendente respondeu o alerta pelo WhatsApp: não é cliente, o agente não responde.
+      if (ehAtendente(agente, conversa.waId)) {
+        await db.rpc('wa_agent_pause', {p_conversation: c.conversation_id, p_reason: 'Conversa de atendente da equipe'});
+        continue;
+      }
       // Etapa atual do lead (se a conversa já está ligada a um lead), para o agente saber de onde avançar.
       const etapas: string[] = Array.isArray(empresa.settings?.stages) ? empresa.settings.stages : [];
       let etapaAtual: string | null = null;
@@ -102,7 +143,7 @@ export async function runAgent() {
         if (sugestao.precisa_humano) {
           conversa.mensagens.push({direction: 'outbound', message_type: 'text', body: sugestao.resposta, transcript: null,
             provider_timestamp: null, created_at: new Date().toISOString(), at: new Date().toISOString()});
-          if (await passarParaAtendente(db, empresa.name, c.conversation_id, motivo || '', conversa, sugestao.lead_quente)) atribuidos++;
+          if (await passarParaAtendente(db, empresa.name, agente, c.conversation_id, motivo || '', conversa, sugestao.lead_quente)) atribuidos++;
         }
       }
     } catch {
