@@ -1,13 +1,14 @@
 import {sessionClient} from '@/lib/supabase/server';
 import {reply,body,sameOrigin} from '@/lib/http';
 import {settingsValid} from '@/lib/validation';
+import {ehDono} from '@/lib/dono.mjs';
 export const dynamic='force-dynamic';
 async function identity(db:any){const {data:{user}}=await db.auth.getUser();return user;}
 async function bootstrap(db:any,user:any,invite?:string){const m=user.user_metadata||{};const {error}=await db.rpc('crm_bootstrap',{p_name:m.name||user.email?.split('@')[0]||'Usuário',p_company:m.company||'Minha empresa',p_niche:m.niche||'Serviços',p_invite:invite||m.invite||null});if(error)throw error;}
 export async function GET(){try{const db=await sessionClient(),u=await identity(db);if(!u)return reply({user:null});await bootstrap(db,u);const {data:member,error:me}=await db.from('crm_members').select('*').eq('user_id',u.id).single();if(me)throw me;
  const results=await Promise.all([db.from('crm_companies').select('*').eq('id',member.company_id).single(),db.from('crm_members').select('*').eq('company_id',member.company_id),db.from('crm_records').select('id,kind,data').eq('company_id',member.company_id).order('created_at',{ascending:false}).limit(1000),db.from('crm_channels').select('provider,label,enabled'),db.from('crm_jobs').select('id,status,attempts,created_at').order('created_at',{ascending:false}).limit(20)]);
  for(const r of results)if(r.error)throw r.error;const [co,ms,rs,ch,jobs]=results;const records=(rs.data||[]) as any[];
- return reply({user:{id:u.id,email:u.email,name:member.name,tenant:member.company_id,role:member.role},company:co.data,members:(ms.data as any[]).map(m=>({...m,id:m.user_id})),leads:records.filter(r=>r.kind==='leads').map(r=>({...r.data,id:r.id})),campaigns:records.filter(r=>r.kind==='campaigns').map(r=>({...r.data,id:r.id})),tasks:records.filter(r=>r.kind==='tasks').map(r=>({...r.data,id:r.id})),activity:records.filter(r=>r.kind==='activity').slice(0,30).map(r=>({...r.data,id:r.id})),channels:ch.data,jobs:jobs.data,limited:records.length===1000});
+ return reply({user:{id:u.id,email:u.email,name:member.name,tenant:member.company_id,role:member.role,owner:ehDono(u.email,process.env.CRM_DONO_EMAILS)},company:co.data,members:(ms.data as any[]).map(m=>({...m,id:m.user_id})),leads:records.filter(r=>r.kind==='leads').map(r=>({...r.data,id:r.id})),campaigns:records.filter(r=>r.kind==='campaigns').map(r=>({...r.data,id:r.id})),tasks:records.filter(r=>r.kind==='tasks').map(r=>({...r.data,id:r.id})),activity:records.filter(r=>r.kind==='activity').slice(0,30).map(r=>({...r.data,id:r.id})),channels:ch.data,jobs:jobs.data,limited:records.length===1000});
  }catch{return reply({error:'Não foi possível carregar sua empresa. Confira sua conexão e confirmação de e-mail.'},500)}}
 export async function POST(req:Request){try{
  if(!sameOrigin(req))return reply({error:'Origem inválida'},403);const b=await body(req),db=await sessionClient(),action=b.action;
