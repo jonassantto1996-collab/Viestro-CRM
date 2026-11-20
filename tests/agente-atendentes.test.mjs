@@ -1,6 +1,6 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import {agenteValido, atendentesDoTexto, lerAgente, pedidoResumo, lerResumo, resumoReserva, FERRAMENTA_RESUMO, MAX_ATENDENTES} from '../lib/agente.mjs';
+import {FERRAMENTA, montarPedido, agenteValido, atendentesDoTexto, lerAgente, pedidoResumo, lerResumo, resumoReserva, FERRAMENTA_RESUMO, MAX_ATENDENTES} from '../lib/agente.mjs';
 
 const base = {enabled: false, name: 'Assistente', tone: 'acolhedor', knowledge: '', handoff: ''};
 const agora = new Date('2026-11-20T14:00:00Z');
@@ -63,4 +63,14 @@ test('resumo reserva (IA fora do ar): motivo e últimas mensagens do cliente', (
   assert.match(r, /meu CPF tá limpo/);
   assert.doesNotMatch(r, /Vou chamar a equipe/); // só o que o cliente falou
   assert.match(resumoReserva({mensagens: []}), /Motivo: o atendente virtual passou para a equipe/);
+});
+
+test('lead quente: o agente classifica intenção de compra (preço, ir à loja, comprar/reservar)', () => {
+  const p = FERRAMENTA.input_schema.properties.lead_quente;
+  assert.equal(p.type, 'boolean');
+  assert.match(p.description, /preço/);
+  assert.ok(!FERRAMENTA.input_schema.required.includes('lead_quente')); // respostas antigas continuam válidas
+  const {sistema} = montarPedido({empresa: 'Regtech', nicho: 'Motos', agente: {...base, knowledge: 'x'.repeat(40)}, contato: '', mensagens: [], agora});
+  assert.match(sistema, /Marque lead_quente quando o cliente mostrar intenção de compra/);
+  assert.match(sistema, /não é lead quente/);
 });

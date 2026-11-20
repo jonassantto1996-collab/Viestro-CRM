@@ -31,10 +31,10 @@ async function lerConversa(db: Db, companyId: string, conversationId: string) {
 // Lead quente: o agente passou para a equipe. O banco escolhe o atendente (alternado) e cria a tarefa;
 // aqui só se escreve o resumo. Falha aqui nunca desfaz a passagem (a conversa já está Pendente).
 async function passarParaAtendente(db: Db, empresa: string, conversationId: string, motivo: string,
-  conversa: Awaited<ReturnType<typeof lerConversa>>) {
+  conversa: Awaited<ReturnType<typeof lerConversa>>, quente = false) {
   try {
     const resumo = await resumirConversa({empresa, contato: conversa.contato, motivo, mensagens: conversa.mensagens});
-    const {data, error} = await db.rpc('wa_agent_assign', {p_conversation: conversationId, p_summary: resumo});
+    const {data, error} = await db.rpc('wa_agent_assign', {p_conversation: conversationId, p_summary: resumo, p_hot: quente});
     if (error) throw error;
     return data as string | null;
   } catch {
@@ -102,7 +102,7 @@ export async function runAgent() {
         if (sugestao.precisa_humano) {
           conversa.mensagens.push({direction: 'outbound', message_type: 'text', body: sugestao.resposta, transcript: null,
             provider_timestamp: null, created_at: new Date().toISOString(), at: new Date().toISOString()});
-          if (await passarParaAtendente(db, empresa.name, c.conversation_id, motivo || '', conversa)) atribuidos++;
+          if (await passarParaAtendente(db, empresa.name, c.conversation_id, motivo || '', conversa, sugestao.lead_quente)) atribuidos++;
         }
       }
     } catch {

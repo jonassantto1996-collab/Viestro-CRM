@@ -40,10 +40,13 @@ test('sugestão do modelo é normalizada e nunca confiada', () => {
   assert.equal(lerSugestao(null), null);
   assert.equal(lerSugestao({resposta: '   '}), null);
   const s = lerSugestao({resposta: 'Oi!', precisa_humano: 'sim', intencao: 'hackear', agendamento: {servico: 'Limpeza', extra: 'x'}});
-  assert.deepEqual(s, {resposta: 'Oi!', precisa_humano: false, motivo_humano: '', intencao: 'outro', agendamento: {servico: 'Limpeza'}});
+  assert.deepEqual(s, {resposta: 'Oi!', precisa_humano: false, motivo_humano: '', lead_quente: false, intencao: 'outro', agendamento: {servico: 'Limpeza'}});
   const h = lerSugestao({resposta: 'Vou chamar a equipe', precisa_humano: true, motivo_humano: 'dor forte', intencao: 'duvida'});
   assert.equal(h.precisa_humano, true);
   assert.equal(h.motivo_humano, 'dor forte');
+  // Lead quente: só true literal conta
+  assert.equal(lerSugestao({resposta: 'Já chamo a equipe', precisa_humano: true, lead_quente: true}).lead_quente, true);
+  assert.equal(lerSugestao({resposta: 'Oi', lead_quente: 'sim'}).lead_quente, false);
 });
 
 import {dentroDoExpediente, respondeSozinho} from '../lib/agente.mjs';

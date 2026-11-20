@@ -62,9 +62,18 @@ export async function GET(req: Request) {
     }
 
     if (view === 'summary') {
-      const {data, error} = await db.from('wa_conversations').select('unread_count').gt('unread_count', 0).limit(1000);
+      const [{data, error}, passagens] = await Promise.all([
+        db.from('wa_conversations').select('unread_count').gt('unread_count', 0).limit(1000),
+        // Passagens do agente ainda abertas (alerta do atendente). RLS: só as da empresa de quem está logado.
+        db.from('crm_records').select('id,data,created_at').eq('kind', 'tasks')
+          .eq('data->>source', 'agent_handoff').eq('data->>done', 'false').order('created_at', {ascending: false}).limit(20),
+      ]);
       if (error) throw error;
-      return reply({unread: (data || []).reduce((s, c) => s + (c.unread_count || 0), 0)});
+      const alerts = (passagens.data || []).map((r: any) => ({
+        id: r.id as string, title: String(r.data?.title || ''), owner: String(r.data?.owner || 'Equipe'),
+        hot: r.data?.hot === true, created: r.created_at as string,
+      }));
+      return reply({unread: (data || []).reduce((s, c) => s + (c.unread_count || 0), 0), alerts});
     }
 
     if (view === 'templates') {
