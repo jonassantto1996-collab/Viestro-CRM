@@ -5,9 +5,10 @@ import {toast} from 'sonner';
 
 // Simulador do agente (só o dono da plataforma, em Configurações). Você escreve como cliente e vê
 // o que o agente responderia com a configuração salva da empresa. Nada é enviado nem gravado.
-type Empresa = {id: string; nome: string; temBase: boolean; ligado: boolean; modo: string; etapas: string[]};
+type Empresa = {id: string; nome: string; temBase: boolean; ligado: boolean; modo: string; modelo: 'rapido' | 'avancado'; etapas: string[]};
 type Sugestao = {resposta: string; precisa_humano: boolean; motivo_humano: string; lead_quente: boolean; intencao: string; etapa?: string};
-type Msg = {de: 'cliente' | 'empresa'; texto: string; info?: Sugestao};
+type Msg = {de: 'cliente' | 'empresa'; texto: string; info?: Sugestao; modelo?: string; segundos?: number};
+const NOME_MODELO: Record<string, string> = {rapido: 'Rápido (Haiku)', avancado: 'Avançado (Sonnet)'};
 
 const ATALHOS = ['Quanto custa?', 'Tá caro, faz mais barato?', 'Anda quantos km com a bateria?', 'Aguenta quantos quilos?', 'Vou pensar', 'Hoje não posso', 'Moro no sítio, vocês entregam?'];
 
@@ -15,6 +16,7 @@ export default function AgentSimulator() {
   const [empresas, setEmpresas] = useState<Empresa[]>([]);
   const [empresa, setEmpresa] = useState('');
   const [etapa, setEtapa] = useState('');
+  const [modelo, setModelo] = useState('');
   const [conversa, setConversa] = useState<Msg[]>([]);
   const [texto, setTexto] = useState('');
   const [pensando, setPensando] = useState(false);
@@ -38,11 +40,11 @@ export default function AgentSimulator() {
     setConversa(nova); setTexto(''); setPensando(true);
     try {
       const r = await fetch('/api/agente-simulador', {method: 'POST', headers: {'Content-Type': 'application/json'},
-        body: JSON.stringify({empresa, etapa: etapa || null, mensagens: nova.slice(-30).map(({de, texto}) => ({de, texto}))})});
+        body: JSON.stringify({empresa, etapa: etapa || null, modelo: modelo || null, mensagens: nova.slice(-30).map(({de, texto}) => ({de, texto}))})});
       const j = await r.json();
       if (!r.ok) throw new Error(j.error || 'Não foi possível simular.');
       const s: Sugestao = j.sugestao;
-      setConversa(c => [...c, {de: 'empresa', texto: s.resposta, info: s}]);
+      setConversa(c => [...c, {de: 'empresa', texto: s.resposta, info: s, modelo: j.modelo, segundos: j.segundos}]);
       if (s.etapa) setEtapa(s.etapa); // o lead "anda" no funil do teste, como no automático
     } catch (e) {
       toast.error(e instanceof Error ? e.message : 'Não foi possível simular.');
@@ -57,6 +59,13 @@ export default function AgentSimulator() {
       <label className="field"><span>Empresa</span>
         <select className="agent-select" value={empresa} onChange={e => { setEmpresa(e.target.value); setConversa([]); setEtapa(''); }}>
           {empresas.map(e => <option key={e.id} value={e.id}>{e.nome}{e.temBase ? '' : ' (sem base de conhecimento)'}</option>)}
+        </select>
+      </label>
+      <label className="field"><span>Modelo de IA (só neste teste)</span>
+        <select className="agent-select" value={modelo} onChange={e => setModelo(e.target.value)}>
+          <option value="">O da empresa{atual ? ` (${NOME_MODELO[atual.modelo]})` : ''}</option>
+          <option value="rapido">Rápido (Haiku): barato</option>
+          <option value="avancado">Avançado (Sonnet): vende melhor, ~20x o custo</option>
         </select>
       </label>
       <label className="field"><span>Etapa do lead no funil</span>
@@ -75,6 +84,7 @@ export default function AgentSimulator() {
           {m.info.lead_quente && <em className="hot">🔥 Lead quente</em>}
           {m.info.precisa_humano && <em className="handoff">Passaria para o atendente{m.info.motivo_humano ? `: ${m.info.motivo_humano}` : ''}</em>}
           {m.info.etapa && <em>Moveria no funil para: {m.info.etapa}</em>}
+          {m.modelo && <em className="muted-tag">{NOME_MODELO[m.modelo] || m.modelo}{m.segundos ? ` · ${String(m.segundos).replace('.', ',')} s` : ''}</em>}
         </div>}
       </div>)}
       {pensando && <div className="sim-msg empresa"><span className="muted">Agente escrevendo…</span></div>}

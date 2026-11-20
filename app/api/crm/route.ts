@@ -1,7 +1,7 @@
 import {sessionClient} from '@/lib/supabase/server';
 import {reply,body,sameOrigin} from '@/lib/http';
 import {settingsValid} from '@/lib/validation';
-import {ehDono} from '@/lib/dono.mjs';
+import {ehDono,manterModeloDoDono} from '@/lib/dono.mjs';
 export const dynamic='force-dynamic';
 async function identity(db:any){const {data:{user}}=await db.auth.getUser();return user;}
 async function bootstrap(db:any,user:any,invite?:string){const m=user.user_metadata||{};const {error}=await db.rpc('crm_bootstrap',{p_name:m.name||user.email?.split('@')[0]||'Usuário',p_company:m.company||'Minha empresa',p_niche:m.niche||'Serviços',p_invite:invite||m.invite||null});if(error)throw error;}
@@ -28,7 +28,7 @@ export async function POST(req:Request){try{
  if(action==='password'){if(String(b.password||'').length<10)return reply({error:'Use pelo menos 10 caracteres.'},400);const {error}=await db.auth.updateUser({password:b.password});if(error)return reply({error:'Não foi possível atualizar a senha.'},400);return reply({ok:true});}
  let result;
  if(action==='save')result=await db.rpc('crm_save',{p_kind:b.kind,p_data:b.data});
- else if(action==='settings'){if(!settingsValid(b.settings))return reply({error:'Revise etapas, critérios e pontuação.'},400);result=await db.rpc('crm_settings',{p_name:b.name||null,p_niche:b.niche||null,p_settings:b.settings});}
+ else if(action==='settings'){if(!settingsValid(b.settings))return reply({error:'Revise etapas, critérios e pontuação.'},400);let ajustes=b.settings;const {data:{user:eu}}=await db.auth.getUser();if(!ehDono(eu?.email,process.env.CRM_DONO_EMAILS)){const {data:co}=await db.from('crm_companies').select('settings').maybeSingle();ajustes=manterModeloDoDono(ajustes,co?.settings);}result=await db.rpc('crm_settings',{p_name:b.name||null,p_niche:b.niche||null,p_settings:ajustes});}
  else if(action==='hook'||action==='member'){result=await db.rpc('crm_token',{p_email:action==='member'?b.email:null,p_name:action==='member'?b.name:null});if(result.error)return reply({error:result.error.message},400);return reply(action==='member'?{invite:`${process.env.NEXT_PUBLIC_SITE_URL||new URL(req.url).origin}/?invite=${result.data}`}:{token:result.data});}
  else return reply({error:'Ação inválida'},400);
  if(result.error)return reply({error:result.error.message},400);return reply({ok:true,id:result.data});

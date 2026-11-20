@@ -1,7 +1,7 @@
 import {serviceClient, sessionClient} from '@/lib/supabase/server';
 import {body, reply, sameOrigin} from '@/lib/http';
 import {ehDono} from '@/lib/dono.mjs';
-import {lerAgente} from '@/lib/agente.mjs';
+import {lerAgente, MODELOS, modeloDoAgente} from '@/lib/agente.mjs';
 import {conversaSimulada} from '@/lib/simulador.mjs';
 import {ErroAgente, sugerirResposta} from '@/lib/agente-ia';
 
@@ -25,7 +25,7 @@ export async function GET() {
     if (error) throw error;
     return reply({empresas: (data || []).map(e => {
       const a = lerAgente(e.settings);
-      return {id: e.id, nome: e.name, temBase: a.knowledge.trim().length >= 30, ligado: a.enabled, modo: a.mode,
+      return {id: e.id, nome: e.name, temBase: a.knowledge.trim().length >= 30, ligado: a.enabled, modo: a.mode, modelo: a.model === 'avancado' ? 'avancado' : 'rapido',
         etapas: Array.isArray(e.settings?.stages) ? e.settings.stages.filter((x: unknown) => typeof x === 'string') : []};
     })});
   } catch {
@@ -47,11 +47,16 @@ export async function POST(req: Request) {
     if (!empresa) return reply({error: 'Empresa não encontrada.'}, 404);
     const etapas: string[] = Array.isArray(empresa.settings?.stages) ? empresa.settings.stages : [];
     const etapaAtual = typeof b.etapa === 'string' && etapas.includes(b.etapa) ? b.etapa : null;
+    // "rapido" ou "avancado" força o modelo só neste teste; vazio = o modelo configurado na empresa.
+    const agente = lerAgente(empresa.settings);
+    const forcado = typeof b.modelo === 'string' && Object.hasOwn(MODELOS, b.modelo) ? MODELOS[b.modelo as keyof typeof MODELOS] : undefined;
+    const modelo = forcado || modeloDoAgente(agente, process.env.CRM_AGENTE_MODELO);
+    const inicio = Date.now();
     const sugestao = await sugerirResposta({
-      empresa: empresa.name, nicho: empresa.niche, agente: lerAgente(empresa.settings), contato: 'Cliente (teste)',
-      mensagens, automatico: true, etapas, etapaAtual,
+      empresa: empresa.name, nicho: empresa.niche, agente, contato: 'Cliente (teste)',
+      mensagens, automatico: true, etapas, etapaAtual, modelo,
     });
-    return reply({sugestao});
+    return reply({sugestao, modelo: modelo === MODELOS.avancado ? 'avancado' : 'rapido', segundos: Math.round((Date.now() - inicio) / 100) / 10});
   } catch (e) {
     if (e instanceof ErroAgente) return reply({error: e.message}, 502);
     return reply({error: 'Não foi possível simular agora.'}, 500);

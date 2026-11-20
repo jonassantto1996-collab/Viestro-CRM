@@ -149,6 +149,7 @@ body {
 .sim-msg.cliente{align-self:flex-end}.sim-msg.cliente span{background:#1d4ed8;color:#fff;border-bottom-right-radius:4px}
 .sim-msg.empresa{align-self:flex-start}.sim-msg.empresa span{background:#17283d;color:#dbe7f5;border-bottom-left-radius:4px}
 .sim-tags{display:flex;flex-wrap:wrap;gap:6px}.sim-tags em{font-style:normal;font-size:11.5px;padding:3px 8px;border-radius:999px;background:#1e3350;color:#b8c8dc}
+.sim-tags em.muted-tag{background:transparent;border:1px solid #23374e;color:#7e96b3}
 .sim-tags em.hot{background:rgba(249,115,22,.18);color:#fdba74}.sim-tags em.handoff{background:rgba(59,130,246,.18);color:#93c5fd}
 .sim-chips{display:flex;flex-wrap:wrap;gap:6px;margin-bottom:10px}.sim-chips button{font-size:12px;padding:5px 10px;border-radius:999px;border:1px solid #2b4463;background:transparent;color:#b8c8dc;cursor:pointer}
 .sim-chips button:disabled{opacity:.5;cursor:default}
