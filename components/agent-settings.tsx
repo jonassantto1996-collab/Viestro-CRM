@@ -3,7 +3,7 @@ import {useEffect, useState} from 'react';
 import {Bot, PenLine, ShieldCheck, Sparkles} from 'lucide-react';
 import {toast} from 'sonner';
 import {Switch} from '@/components/ui/switch';
-import {AGENTE_PADRAO, agenteValido} from '@/lib/agente.mjs';
+import {AGENTE_PADRAO, agenteValido, atendentesDoTexto, MAX_ATENDENTES} from '@/lib/agente.mjs';
 
 const EXEMPLO = `Serviços e preços:
 - Consulta de avaliação: gratuita
@@ -25,14 +25,16 @@ Próximo passo: sempre convidar para agendar a avaliação.`;
 export default function AgentSettings({company, admin, demo, onSave}: {company: any; admin: boolean; demo: boolean; onSave: (c: any) => Promise<void> | void}) {
   const [a, setA] = useState<any>({...AGENTE_PADRAO, ...(company.settings?.agent || {})});
   const [salvando, setSalvando] = useState(false);
-  useEffect(() => setA({...AGENTE_PADRAO, ...(company.settings?.agent || {})}), [company]);
+  const [atendentes, setAtendentes] = useState<string>((company.settings?.agent?.attendants || []).join('\n'));
+  useEffect(() => { setA({...AGENTE_PADRAO, ...(company.settings?.agent || {})}); setAtendentes((company.settings?.agent?.attendants || []).join('\n')); }, [company]);
   const set = (patch: any) => setA((x: any) => ({...x, ...patch}));
 
   async function salvar() {
-    const agente = {...a, name: a.name.trim(), knowledge: a.knowledge.trim(), sales: (a.sales || '').trim(), handoff: a.handoff.trim(), funnel: (a.funnel || '').trim()};
+    const agente = {...a, name: a.name.trim(), knowledge: a.knowledge.trim(), sales: (a.sales || '').trim(), handoff: a.handoff.trim(), funnel: (a.funnel || '').trim(), attendants: atendentesDoTexto(atendentes)};
     if (!agenteValido(agente)) {
       toast.error(agente.enabled && agente.knowledge.length < 30 ? 'Escreva a base de conhecimento antes de ativar o agente.'
-        : agente.office_start >= agente.office_end ? 'O horário de fechar precisa ser depois do de abrir.' : 'Revise o nome (até 40 letras) e os textos do agente.');
+        : agente.office_start >= agente.office_end ? 'O horário de fechar precisa ser depois do de abrir.'
+        : agente.attendants.length > MAX_ATENDENTES ? `No máximo ${MAX_ATENDENTES} atendentes.` : 'Revise o nome (até 40 letras) e os textos do agente.');
       return;
     }
     setSalvando(true);
@@ -93,6 +95,10 @@ export default function AgentSettings({company, admin, demo, onSave}: {company: 
         <label className="field"><span>Abre às</span><input type="time" disabled={!admin} value={a.office_start} onChange={e => set({office_start: e.target.value})}/></label>
         <label className="field"><span>Fecha às</span><input type="time" disabled={!admin} value={a.office_end} onChange={e => set({office_end: e.target.value})}/></label>
       </div>}
+      <label className="field"><span>Quem atende os leads passados pelo agente</span>
+        <textarea disabled={!admin} rows={2} placeholder={'Um nome por linha. Ex.:\nAgna'} value={atendentes} onChange={e => setAtendentes(e.target.value)}/>
+        <small>Quando o agente passa a conversa para a equipe, o lead fica com um destes atendentes (alternando um de cada vez, na ordem da lista) e ele recebe uma tarefa com o resumo da conversa. Cliente que volta fica com quem já atendia. Vazio = a tarefa vai para "Equipe". Até {MAX_ATENDENTES} nomes.</small>
+      </label>
       <ul className="agent-safety">
         <li><ShieldCheck size={14}/>Responde só com o que está na base de conhecimento.</li>
         <li><ShieldCheck size={14}/>Espera o cliente terminar de escrever antes de responder.</li>

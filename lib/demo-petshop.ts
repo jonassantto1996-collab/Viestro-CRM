@@ -44,6 +44,8 @@ export function petshopData() {
       {id: 'c2', name: 'Google · Pet shop perto de mim', channel: 'Google Ads', spend: 420, status: 'Ativa', start: date(now - 30 * DAY)},
     ],
     tasks: [
+      {id: 't0', title: 'Atender tutor do Thor (passado pelo agente)', leadId: 'p3', owner: 'Ana', due: date(now), done: false, source: 'agent_handoff',
+        notes: 'Motivo: Pediu orçamento do plano mensal\nInteresse: Plano de banho semanal para o Thor (golden, porte grande)\nJá informou: Prefere sábado de manhã; quer buscar e levar\nFalta: Confirmar endereço para o leva e traz\nPróximo passo: Enviar o valor do plano e combinar o primeiro sábado'},
       {id: 't1', title: 'Confirmar banho da Mel amanhã às 9h', leadId: 'p0', owner: 'Ana', due: date(now), done: false},
       {id: 't2', title: 'Enviar valor da assinatura de ração para o João', leadId: 'p1', owner: 'Jonas', due: date(now), done: false},
       {id: 't3', title: 'Lembrar vacina da Luna', leadId: 'p2', owner: 'Ana', due: date(now - DAY), done: false},
