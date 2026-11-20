@@ -29,7 +29,7 @@ export default function AgentSettings({company, admin, demo, onSave}: {company: 
   const set = (patch: any) => setA((x: any) => ({...x, ...patch}));
 
   async function salvar() {
-    const agente = {...a, name: a.name.trim(), knowledge: a.knowledge.trim(), sales: (a.sales || '').trim(), handoff: a.handoff.trim()};
+    const agente = {...a, name: a.name.trim(), knowledge: a.knowledge.trim(), sales: (a.sales || '').trim(), handoff: a.handoff.trim(), funnel: (a.funnel || '').trim()};
     if (!agenteValido(agente)) {
       toast.error(agente.enabled && agente.knowledge.length < 30 ? 'Escreva a base de conhecimento antes de ativar o agente.'
         : agente.office_start >= agente.office_end ? 'O horário de fechar precisa ser depois do de abrir.' : 'Revise o nome (até 40 letras) e os textos do agente.');
@@ -62,6 +62,10 @@ export default function AgentSettings({company, admin, demo, onSave}: {company: 
     <label className="field"><span>Quando chamar a equipe</span>
       <textarea disabled={!admin} rows={3} maxLength={1500} placeholder="Ex.: dor ou urgência, orçamento de implante, pedido de desconto." value={a.handoff} onChange={e => set({handoff: e.target.value})}/>
       <small>Reclamações, pedidos para falar com uma pessoa e assuntos de saúde já vão sempre para a equipe.</small>
+    </label>
+    <label className="field"><span>Quando mover no funil</span>
+      <textarea disabled={!admin} rows={4} maxLength={2000} placeholder={`Ex.:\nEm contato: o cliente respondeu.\nEm Negociação: falou de entrada, parcelas ou financiamento.\nVisita Agendada: confirmou o dia de vir à loja.`} value={a.funnel || ''} onChange={e => set({funnel: e.target.value})}/>
+      <small>Só no modo automático. O agente só avança o lead entre as etapas do funil ({(company?.settings?.stages || []).filter((e: string) => e !== 'Ganho' && e !== 'Perdido').join(', ') || 'sem etapas'}); Ganho e Perdido ficam com a equipe. Vazio = o agente não mexe no funil. {(a.funnel || '').length.toLocaleString('pt-BR')}/2.000</small>
     </label>
     <div className="field"><span>Como o agente trabalha</span>
       <div className="agent-modes" role="radiogroup" aria-label="Modo do agente">
