@@ -64,6 +64,7 @@ CRM próprio da Viestro Assessoria, reaproveitável para qualquer nicho (clínic
 - 2026-11-20 — Conector do Claude é só da Viestro (dono da plataforma): clientes, mesmo admins, não veem o cartão nem recebem o endereço; o dono vê o de todas as empresas num lugar só. Configurar `CRM_DONO_EMAILS` na Vercel antes do deploy.
 - 2026-11-20 — Agente da Regtech como vendedor de mobilidade elétrica: roteiro "Como vender" (dor → indicação por autonomia/peso → objeções → próximo passo), teste na loja e entrega nas vicinais na base. Faltam da loja: CNH/emplacamento por modelo, custo de recarga (economia), tempo de recarga e duração da bateria. Ajustes do roteiro testados no simulador antes de ligar.
 - 2026-11-20 — Roteiro v2 da Regtech (tom descontraído; qualifica uso + forma de pagamento antes de passar preço para a Agna, salvo insistência; 2 opções por autonomia/peso; "tá caro" com a conta do próprio cliente). Sonnet só por escolha do dono após comparar no simulador (custo ~20x o Haiku, ~R$ 0,03/resposta).
+- 2026-11-21 — Regtech: roteiro v3 (pergunta pra quem é: gênero e idade; fotos/vídeo/outra cor → atendente, nunca mandar ao site), cartão em até 12x ou 4x sem juros em todos os modelos, atendentes Agna + Cleudo alternando (alertas nos WhatsApps pessoais deles). Na virada conectar os DOIS números da loja: (94) 99208-6088 e (94) 99309-1715. Próximo possível: agente mandar fotos do catálogo do site.
 - 2026-10 — Primeira implantação planejada: clínica (reativação de pacientes antigos); manter o CRM genérico para outros nichos.
 
 ## Erros já resolvidos
