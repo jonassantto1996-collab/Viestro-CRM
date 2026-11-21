@@ -499,3 +499,63 @@ body {
 
 /* Botão "Ativar avisos" + ação da página: no celular, quebram linha em vez de empurrar a tela */
 @media(max-width:600px){.heading-actions{flex:1 1 100%;flex-wrap:wrap}.lead-alert-enable{margin-right:0}}
+
+/* ===== WhatsApp claro e maior (leitura melhor, parecido com o WhatsApp) ===== */
+.wa-inbox{height:max(560px,calc(100dvh - 150px));max-height:none}
+.page-heading.is-compact{margin-bottom:12px;align-items:center}.page-heading.is-compact .eyebrow,.page-heading.is-compact p{display:none}.page-heading.is-compact h1{font-size:20px}
+.wa-inbox .panel{background:#fff;border-color:#dfe5ec;box-shadow:0 1px 3px rgba(11,20,26,.08)}
+.wa-inbox .wa-list-head,.wa-inbox .wa-thread-head,.wa-inbox .wa-composer{background:#f0f2f5;border-color:#e1e6eb}
+.wa-inbox .wa-list-title h2,.wa-inbox .wa-placeholder h2,.wa-inbox .wa-thread-title strong,.wa-inbox .wa-contact-card strong{color:#111b21}
+.wa-inbox .wa-list-title span{color:#54656f;border-color:#cfd8e3}
+.wa-inbox .wa-search,.wa-inbox input,.wa-inbox textarea,.wa-inbox select{background:#fff;color:#111b21;border-color:#cfd8e3}
+.wa-inbox input::placeholder,.wa-inbox textarea::placeholder{color:#8696a0}
+.wa-inbox .wa-filters button{background:#fff;border-color:#cfd8e3;color:#3b4a5a}
+.wa-inbox .wa-filters button:hover{border-color:#8aa4c2;color:#111b21}
+.wa-inbox .wa-filters button.active{background:#e7f0ff;border-color:#7aa7e6;color:#0b4aa0}
+.wa-inbox .wa-list-body{scrollbar-color:#c5ced8 transparent}
+.wa-inbox .wa-item{border-color:#eef1f4}
+.wa-inbox .wa-item:hover{background:#f5f6f6}
+.wa-inbox .wa-item.unread{background:#f0f7ff}
+.wa-inbox .wa-item.active{background:#e9edef}
+.wa-inbox .wa-item.active::before{background:#1f8f4e}
+.wa-inbox .wa-item-top strong{color:#111b21;font-size:15px}
+.wa-inbox .wa-item-top time{color:#667781}
+.wa-inbox .wa-item.unread .wa-item-top time{color:#1f8f4e}
+.wa-inbox .wa-item-preview{color:#54656f;font-size:14px}
+.wa-inbox .wa-item.unread .wa-item-preview{color:#111b21}
+.wa-inbox .wa-unread{background:#25d366;color:#fff}
+.wa-inbox .wa-avatar{background:#dfe5ec;color:#33475b}
+.wa-inbox .wa-tag{background:#eef2f6;color:#3b4a5a;border-color:#d5dde6}
+.wa-inbox .wa-tag.awaiting{background:#fff4d6;color:#7a5200;border-color:#f0d58c}
+.wa-inbox .wa-tag.done{background:#e3f6ea;color:#1f6f40;border-color:#b5e2c6}
+.wa-inbox .wa-tag.cat{background:#e8efff;color:#2b4fa8;border-color:#c3d3f5}
+.wa-inbox .wa-thread-title small,.wa-inbox .wa-contact-card small,.wa-inbox .wa-placeholder{color:#667781}
+.wa-inbox .wa-back{color:#54656f}
+.wa-inbox .wa-window.open{background:#e3f6ea;color:#1f6f40;border-color:#b5e2c6}
+.wa-inbox .wa-window.closed{background:#fde8e8;color:#a12d2d;border-color:#f3c2c2}
+.wa-inbox .wa-messages{background:#efeae2}
+.wa-inbox .wa-day span{background:#fff;color:#54656f;border-color:#e1e6eb}
+.wa-inbox .wa-msg{box-shadow:0 1px .5px rgba(11,20,26,.13)}
+.wa-inbox .wa-msg p{color:#111b21;font-size:15px}
+.wa-inbox .wa-msg.inbound{background:#fff;border-color:#fff}
+.wa-inbox .wa-msg.outbound{background:#d9fdd3;border-color:#d9fdd3}
+.wa-inbox .wa-msg.failed{background:#fde8e8;border-color:#f3c2c2}
+.wa-inbox .wa-msg-meta,.wa-inbox .wa-tick{color:#667781}
+.wa-inbox .wa-msg-meta em,.wa-inbox .wa-msg-tpl{color:#1f6fb2}
+.wa-inbox .wa-tick.read{color:#53bdeb}
+.wa-inbox .wa-tick.failed,.wa-inbox .wa-msg-error{color:#c62828}
+.wa-inbox .wa-closed{color:#3b4a5a}.wa-inbox .wa-closed p{color:#54656f}.wa-inbox .wa-closed p strong{color:#a12d2d}
+.wa-inbox .wa-contact-card{border-color:#e1e6eb}.wa-inbox .wa-contact-card a{color:#0a66c2}
+.wa-inbox .wa-box,.wa-inbox .wa-tpl-preview{background:#f7f9fb;border-color:#e1e6eb}
+.wa-inbox .wa-box h3,.wa-inbox .wa-box dd,.wa-inbox .wa-tpl-preview p{color:#111b21}
+.wa-inbox .wa-box p,.wa-inbox .wa-box dt,.wa-inbox .wa-tpl-preview small{color:#54656f}
+.wa-inbox .wa-ok{color:#1f6f40 !important}.wa-inbox .wa-warn{color:#7a5200 !important}
+@media(max-width:600px){.wa-inbox{height:max(480px,calc(100dvh - 170px))}}
+.wa-inbox .wa-item.unread .wa-item-top strong{color:#111b21;font-weight:700}
+.wa-inbox .wa-suggest{background:#eef5ff;border-color:#c3d3f5;color:#1f3b63}
+.wa-inbox .wa-suggest.handoff{background:#fff6e0;border-color:#f0d58c;color:#5c3d00}
+.wa-inbox .wa-suggest strong,.wa-inbox .wa-suggest b{color:#111b21}
+.wa-inbox .wa-suggest span,.wa-inbox .wa-suggest em{color:inherit}
+.wa-inbox .button.secondary{background:#fff;color:#111b21;border-color:#cfd8e3}
+.wa-inbox .field>span,.wa-inbox label>span,.wa-inbox .wa-details-body h3,.wa-inbox .wa-details-body small{color:#54656f}
+.wa-inbox [data-slot=select-trigger],.wa-inbox button[role=combobox]{background:#fff;color:#111b21;border-color:#cfd8e3}

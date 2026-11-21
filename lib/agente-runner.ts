@@ -2,7 +2,7 @@ import 'server-only';
 import {serviceClient} from '@/lib/supabase/server';
 import {lerAgente, respondeSozinho, MAX_RESPOSTAS_DIA} from '@/lib/agente.mjs';
 import {sugerirResposta, resumirConversa} from '@/lib/agente-ia';
-import {ALERTA_MODELO, envioDoAlerta, deveAvisar, ehAtendente, telefoneDoAtendente} from '@/lib/alerta-atendente.mjs';
+import {ALERTA_MODELO, envioDoAlerta, deveAvisar, ehAtendente, telefoneDoAtendente, finalDoNumero, clienteComFinal} from '@/lib/alerta-atendente.mjs';
 import {buildSendBody, classifyGraphResponse, graphBase} from '@/lib/whatsapp.mjs';
 
 // Modo automático do agente. Roda logo depois que uma mensagem do cliente chega (webhook)
@@ -61,7 +61,9 @@ async function avisarAtendente(db: Db, accountId: string | null, telefone: strin
 async function passarParaAtendente(db: Db, empresa: string, agente: Record<string, any>, conversationId: string, motivo: string,
   conversa: Awaited<ReturnType<typeof lerConversa>>, quente = false) {
   try {
-    const resumo = await resumirConversa({empresa, contato: conversa.contato, motivo, mensagens: conversa.mensagens});
+    const final = finalDoNumero(conversa.waId);
+    // Primeira linha do resumo: o final do número, para achar o cliente no celular mesmo sem contato salvo.
+    const resumo = (final ? `WhatsApp: final ${final}\n` : '') + await resumirConversa({empresa, contato: conversa.contato, motivo, mensagens: conversa.mensagens});
     // Tarefa aberta antes desta passagem: decide se o atendente é avisado de novo.
     const {data: antes} = await db.from('crm_records').select('data').eq('kind', 'tasks').eq('data->>source', 'agent_handoff')
       .eq('data->>conversationId', conversationId).eq('data->>done', 'false').limit(1).maybeSingle();
@@ -70,7 +72,7 @@ async function passarParaAtendente(db: Db, empresa: string, agente: Record<strin
     const atendente = data as string | null;
     const telefone = telefoneDoAtendente(agente, atendente);
     if (telefone && deveAvisar({antes: antes ? {hot: (antes as any).data?.hot === true} : null, quente})) {
-      await avisarAtendente(db, conversa.accountId, telefone, envioDoAlerta({atendente, cliente: conversa.contato, motivo, quente}));
+      await avisarAtendente(db, conversa.accountId, telefone, envioDoAlerta({atendente, cliente: clienteComFinal(conversa.contato, conversa.waId), motivo, quente}));
     }
     return atendente;
   } catch {

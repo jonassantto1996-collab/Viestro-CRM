@@ -54,3 +54,15 @@ test('conversa do atendente: o agente não responde', () => {
   assert.equal(ehAtendente(agente, '5594999990000'), false);
   assert.equal(ehAtendente({}, '5595984401730'), false);
 });
+
+import {finalDoNumero, clienteComFinal} from '../lib/alerta-atendente.mjs';
+
+test('final do número: últimos 4 dígitos para o atendente achar o cliente', () => {
+  assert.equal(finalDoNumero('5594981115653'), '5653');
+  assert.equal(finalDoNumero('+55 (94) 98111-5653'), '5653');
+  assert.equal(finalDoNumero('123'), '');
+  assert.equal(finalDoNumero(null), '');
+  assert.equal(clienteComFinal('João', '5594981115653'), 'João (final 5653)');
+  assert.equal(clienteComFinal('', '5594981115653'), 'cliente do WhatsApp final 5653');
+  assert.equal(clienteComFinal('João', null), 'João');
+});
