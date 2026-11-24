@@ -3,6 +3,7 @@ import {body, reply, sameOrigin} from '@/lib/http';
 import {ehDono} from '@/lib/dono.mjs';
 import {lerAgente, MODELOS, modeloDoAgente} from '@/lib/agente.mjs';
 import {conversaSimulada} from '@/lib/simulador.mjs';
+import {fotosParaEnviar} from '@/lib/fotos-agente.mjs';
 import {ErroAgente, sugerirResposta} from '@/lib/agente-ia';
 
 export const dynamic = 'force-dynamic';
@@ -56,7 +57,8 @@ export async function POST(req: Request) {
       empresa: empresa.name, nicho: empresa.niche, agente, contato: 'Cliente (teste)',
       mensagens, automatico: true, etapas, etapaAtual, modelo, criterios: Array.isArray(empresa.settings?.criteria) ? empresa.settings.criteria : [],
     });
-    return reply({sugestao, modelo: modelo === MODELOS.avancado ? 'avancado' : 'rapido', segundos: Math.round((Date.now() - inicio) / 100) / 10});
+    const fotos = fotosParaEnviar(sugestao.fotos, agente).map(f => ({nome: f.nome, url: f.url}));
+    return reply({sugestao, fotos, modelo: modelo === MODELOS.avancado ? 'avancado' : 'rapido', segundos: Math.round((Date.now() - inicio) / 100) / 10});
   } catch (e) {
     if (e instanceof ErroAgente) return reply({error: e.message}, 502);
     return reply({error: 'Não foi possível simular agora.'}, 500);

@@ -7,7 +7,7 @@ import {toast} from 'sonner';
 // o que o agente responderia com a configuração salva da empresa. Nada é enviado nem gravado.
 type Empresa = {id: string; nome: string; temBase: boolean; ligado: boolean; modo: string; modelo: 'rapido' | 'avancado'; etapas: string[]};
 type Sugestao = {resposta: string; precisa_humano: boolean; motivo_humano: string; lead_quente: boolean; intencao: string; etapa?: string; criterios?: string[]; temperatura?: string};
-type Msg = {de: 'cliente' | 'empresa'; texto: string; info?: Sugestao; modelo?: string; segundos?: number};
+type Msg = {de: 'cliente' | 'empresa'; texto: string; info?: Sugestao; modelo?: string; segundos?: number; fotos?: {nome: string; url: string}[]};
 const NOME_MODELO: Record<string, string> = {rapido: 'Rápido (Haiku)', avancado: 'Avançado (Sonnet)'};
 
 const ATALHOS = ['Quanto custa?', 'Tá caro, faz mais barato?', 'Anda quantos km com a bateria?', 'Aguenta quantos quilos?', 'Vou pensar', 'Hoje não posso', 'Moro no sítio, vocês entregam?'];
@@ -44,7 +44,7 @@ export default function AgentSimulator() {
       const j = await r.json();
       if (!r.ok) throw new Error(j.error || 'Não foi possível simular.');
       const s: Sugestao = j.sugestao;
-      setConversa(c => [...c, {de: 'empresa', texto: s.resposta, info: s, modelo: j.modelo, segundos: j.segundos}]);
+      setConversa(c => [...c, {de: 'empresa', texto: s.resposta, info: s, modelo: j.modelo, segundos: j.segundos, fotos: j.fotos || []}]);
       if (s.etapa) setEtapa(s.etapa); // o lead "anda" no funil do teste, como no automático
     } catch (e) {
       toast.error(e instanceof Error ? e.message : 'Não foi possível simular.');
@@ -80,6 +80,7 @@ export default function AgentSimulator() {
       {!conversa.length && <p className="muted">Comece com uma mensagem de cliente ou use um atalho abaixo.</p>}
       {conversa.map((m, i) => <div key={i} className={'sim-msg ' + m.de}>
         <span>{m.texto}</span>
+        {!!m.fotos?.length && <div className="sim-fotos">{m.fotos.map(f => <figure key={f.url}><img src={f.url} alt={f.nome} loading="lazy"/><figcaption>📷 {f.nome}</figcaption></figure>)}</div>}
         {m.info && <div className="sim-tags">
           {m.info.lead_quente && <em className="hot">🔥 Lead quente</em>}
           {m.info.precisa_humano && <em className="handoff">Passaria para o atendente{m.info.motivo_humano ? `: ${m.info.motivo_humano}` : ''}</em>}

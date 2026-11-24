@@ -1,4 +1,5 @@
 import 'server-only';
+import {modelosComFoto} from '@/lib/fotos-agente.mjs';
 import {ferramentaPara, etapasDoAgente, lerSugestao, montarPedido, FERRAMENTA_RESUMO, pedidoResumo, lerResumo, resumoReserva, chamadaDoAgente, modeloDoAgente, criteriosDoAgente} from '@/lib/agente.mjs';
 
 // Chamada ao Claude para o agente de atendimento. Chave só no servidor (ANTHROPIC_API_KEY na Vercel).
@@ -10,8 +11,10 @@ type Entrada = {empresa: string; nicho: string; agente: Record<string, unknown>;
 export async function sugerirResposta(entrada: Entrada) {
   const chave = process.env.ANTHROPIC_API_KEY;
   if (!chave) throw new ErroAgente('Falta configurar a chave da IA (ANTHROPIC_API_KEY) na Vercel.');
-  const {sistema, usuario} = montarPedido(entrada);
-  const ferramenta = ferramentaPara(etapasDoAgente(entrada.agente, entrada.etapas), entrada.criterios || []);
+  // Fotos só no automático (no modo sugestão quem envia é a pessoa da equipe).
+  const fotos = entrada.automatico ? modelosComFoto(entrada.agente) : [];
+  const {sistema, usuario} = montarPedido({...entrada, fotos});
+  const ferramenta = ferramentaPara(etapasDoAgente(entrada.agente, entrada.etapas), entrada.criterios || [], fotos);
   // Modelo da empresa (rápido/avançado); o simulador do dono pode forçar outro para comparar.
   const modelo = entrada.modelo || modeloDoAgente(entrada.agente, process.env.CRM_AGENTE_MODELO);
   const {beta, body} = chamadaDoAgente({modelo, sistema, usuario, ferramenta});
@@ -32,7 +35,7 @@ export async function sugerirResposta(entrada: Entrada) {
     throw new ErroAgente('A IA não respondeu agora. Tente de novo.');
   }
   const bloco = (d?.content || []).find((b: any) => b.type === 'tool_use' && b.name === ferramenta.name);
-  const sugestao = lerSugestao(bloco?.input, etapasDoAgente(entrada.agente, entrada.etapas), criteriosDoAgente(entrada.criterios));
+  const sugestao = lerSugestao(bloco?.input, etapasDoAgente(entrada.agente, entrada.etapas), criteriosDoAgente(entrada.criterios), fotos);
   // Registro sem conteúdo: só modelo e consumo, para acompanhar custo.
   console.log(`[agente] ${entrada.automatico ? 'automatico' : 'sugestao'} modelo=${d?.model || modelo} ok=${!!sugestao} parada=${d?.stop_reason ?? '?'} entrada=${d?.usage?.input_tokens ?? '?'} cache=${d?.usage?.cache_read_input_tokens ?? 0} saida=${d?.usage?.output_tokens ?? '?'}`);
   if (!sugestao) throw new ErroAgente('A IA não conseguiu sugerir uma resposta para esta conversa.');
