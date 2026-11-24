@@ -559,3 +559,8 @@ body {
 .wa-inbox .button.secondary{background:#fff;color:#111b21;border-color:#cfd8e3}
 .wa-inbox .field>span,.wa-inbox label>span,.wa-inbox .wa-details-body h3,.wa-inbox .wa-details-body small{color:#54656f}
 .wa-inbox [data-slot=select-trigger],.wa-inbox button[role=combobox]{background:#fff;color:#111b21;border-color:#cfd8e3}
+
+/* Botão "Instalar aplicativo" (só aparece quando o navegador permite instalar) */
+.install-app{display:inline-flex;align-items:center;gap:6px;padding:5px 11px;border-radius:999px;border:1px solid #2b4463;background:transparent;color:#9fc4ee;font-size:12px;cursor:pointer;white-space:nowrap}
+.install-app:hover{border-color:#4da3ff;color:#e3ecf8}
+@media(max-width:600px){.install-app span{display:none}.install-app{padding:6px}}
