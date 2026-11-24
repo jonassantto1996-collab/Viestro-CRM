@@ -2,7 +2,7 @@ import 'server-only';
 import {serviceClient} from '@/lib/supabase/server';
 import {lerAgente, respondeSozinho, MAX_RESPOSTAS_DIA} from '@/lib/agente.mjs';
 import {sugerirResposta, resumirConversa} from '@/lib/agente-ia';
-import {ALERTA_MODELO, envioDoAlerta, deveAvisar, ehAtendente, telefoneDoAtendente, finalDoNumero, clienteComFinal} from '@/lib/alerta-atendente.mjs';
+import {ALERTA_MODELO, envioDoAlerta, deveAvisar, ehAtendente, telefoneDoAtendente, finalDoNumero, clienteComFinal, ordemDasContas} from '@/lib/alerta-atendente.mjs';
 import {buildSendBody, classifyGraphResponse, graphBase} from '@/lib/whatsapp.mjs';
 
 // Modo automático do agente. Roda logo depois que uma mensagem do cliente chega (webhook)
@@ -28,32 +28,42 @@ async function lerConversa(db: Db, companyId: string, conversationId: string) {
   const mensagens = (msgs.data || []).filter(m => !IGNORAR.has(m.message_type))
     .map(m => ({...m, at: m.provider_timestamp || m.created_at})).sort((x, y) => x.at.localeCompare(y.at));
   return {contato: (conv.data as any)?.contact?.name || '', leadId: ((conv.data as any)?.contact?.crm_lead_id || null) as string | null,
-    waId: ((conv.data as any)?.contact?.wa_id || null) as string | null, accountId: ((conv.data as any)?.account_id || null) as string | null, mensagens};
+    waId: ((conv.data as any)?.contact?.wa_id || null) as string | null, accountId: ((conv.data as any)?.account_id || null) as string | null, companyId, mensagens};
 }
 
 // Alerta no WhatsApp do atendente. Só sai com o modelo aprovado pela Meta no número da empresa;
 // sem modelo aprovado (ou sem telefone), não envia nada. Nunca registra telefone nem conteúdo em log.
-async function avisarAtendente(db: Db, accountId: string | null, telefone: string, payload: ReturnType<typeof envioDoAlerta>) {
-  if (!accountId) return false;
-  const [{data: modelo}, {data: conta}, {data: token}] = await Promise.all([
-    db.from('wa_templates').select('id').eq('account_id', accountId).eq('name', ALERTA_MODELO.name)
-      .eq('language', ALERTA_MODELO.language).eq('status', 'APPROVED').maybeSingle(),
-    db.from('wa_accounts').select('phone_number_id,connection_status').eq('id', accountId).maybeSingle(),
-    db.rpc('wa_account_token', {p_account: accountId}),
-  ]);
-  if (!modelo || !conta?.phone_number_id || conta.connection_status === 'disconnected' || !token) return false;
-  try {
-    const res = await fetch(`${graphBase(process.env.WHATSAPP_GRAPH_BASE)}/${conta.phone_number_id}/messages`, {
-      method: 'POST', headers: {Authorization: `Bearer ${token}`, 'Content-Type': 'application/json'},
-      body: JSON.stringify(buildSendBody('template', payload, telefone)), signal: AbortSignal.timeout(15000), cache: 'no-store',
-    });
-    const r = classifyGraphResponse(res.status, await res.json().catch(() => null));
-    if (!r.ok) console.error('[agente] alerta do atendente não enviado', {code: 'code' in r ? r.code : undefined});
-    return r.ok;
-  } catch {
-    console.error('[agente] alerta do atendente não enviado', {code: 'rede'});
-    return false;
+async function avisarAtendente(db: Db, companyId: string, accountId: string | null, telefone: string, payload: ReturnType<typeof envioDoAlerta>) {
+  const {data: contas} = await db.from('wa_accounts').select('id,phone_number_id,connection_status').eq('company_id', companyId);
+  const ids = (contas || []).map(c => c.id);
+  if (!ids.length) return false;
+  const aprovadas = async () => {
+    const {data} = await db.from('wa_templates').select('account_id').in('account_id', ids)
+      .eq('name', ALERTA_MODELO.name).eq('language', ALERTA_MODELO.language).eq('status', 'APPROVED');
+    return new Set((data || []).map(t => t.account_id as string));
+  };
+  let ok = await aprovadas();
+  if (!ok.size) {
+    // A Meta não avisa quando aprova um modelo: busca uma vez (no máximo a cada 60 s por número).
+    try { const {syncTemplates} = await import('@/lib/whatsapp-worker'); await syncTemplates(companyId); ok = await aprovadas(); } catch {}
   }
+  for (const id of ordemDasContas(contas || [], accountId, ok)) {
+    const conta = (contas || []).find(c => c.id === id);
+    const {data: token} = await db.rpc('wa_account_token', {p_account: id});
+    if (!conta?.phone_number_id || !token) continue;
+    try {
+      const res = await fetch(`${graphBase(process.env.WHATSAPP_GRAPH_BASE)}/${conta.phone_number_id}/messages`, {
+        method: 'POST', headers: {Authorization: `Bearer ${token}`, 'Content-Type': 'application/json'},
+        body: JSON.stringify(buildSendBody('template', payload, telefone)), signal: AbortSignal.timeout(15000), cache: 'no-store',
+      });
+      const r = classifyGraphResponse(res.status, await res.json().catch(() => null));
+      if (r.ok) return true;
+      console.error('[agente] alerta do atendente não enviado por um número; tentando o próximo', {code: 'code' in r ? r.code : undefined});
+    } catch {
+      console.error('[agente] alerta do atendente não enviado por um número; tentando o próximo', {code: 'rede'});
+    }
+  }
+  return false;
 }
 
 // Lead quente: o agente passou para a equipe. O banco escolhe o atendente (alternado) e cria a tarefa;
@@ -72,7 +82,7 @@ async function passarParaAtendente(db: Db, empresa: string, agente: Record<strin
     const atendente = data as string | null;
     const telefone = telefoneDoAtendente(agente, atendente);
     if (telefone && deveAvisar({antes: antes ? {hot: (antes as any).data?.hot === true} : null, quente})) {
-      await avisarAtendente(db, conversa.accountId, telefone, envioDoAlerta({atendente, cliente: clienteComFinal(conversa.contato, conversa.waId), motivo, quente}));
+      await avisarAtendente(db, conversa.companyId, conversa.accountId, telefone, envioDoAlerta({atendente, cliente: clienteComFinal(conversa.contato, conversa.waId), motivo, quente}));
     }
     return atendente;
   } catch {
@@ -87,7 +97,7 @@ export async function runAgent() {
   const {data: candidatas, error} = await db.rpc('wa_agent_candidates', {p_quiet_seconds: ESPERA_DIGITANDO_S, p_limit: 10});
   if (error) throw error;
   const empresas = new Map<string, any>();
-  let respondidas = 0, equipe = 0, movidos = 0, atribuidos = 0;
+  let respondidas = 0, equipe = 0, movidos = 0, atribuidos = 0, qualificados = 0;
   for (const c of (candidatas || []) as {conversation_id: string; company_id: string; last_inbound_at: string}[]) {
     try {
       if (!empresas.has(c.company_id)) {
@@ -125,7 +135,7 @@ export async function runAgent() {
       }
       const sugestao = await sugerirResposta({
         empresa: empresa.name, nicho: empresa.niche, agente, contato: conversa.contato, mensagens, automatico: true,
-        etapas, etapaAtual,
+        etapas, etapaAtual, criterios: Array.isArray(empresa.settings?.criteria) ? empresa.settings.criteria : [],
       });
       const motivo = sugestao.motivo_humano || (sugestao.precisa_humano ? 'Pediu atendimento da equipe' : null);
       const {data: enviada, error: e} = await db.rpc('wa_agent_send', {
@@ -141,11 +151,17 @@ export async function runAgent() {
           const {data: movido} = await db.rpc('wa_agent_move_stage', {p_conversation: c.conversation_id, p_stage: sugestao.etapa});
           if (movido) movidos++;
         }
+        // Qualificação automática: critérios comprovados e temperatura (o banco só marca, nunca desmarca).
+        if (sugestao.criterios?.length || sugestao.temperatura) {
+          const {data: qualificou} = await db.rpc('wa_agent_qualify', {p_conversation: c.conversation_id,
+            p_criteria: sugestao.criterios || [], p_temperature: sugestao.temperatura || null});
+          if (qualificou) qualificados++;
+        }
         // Depois de mover no funil, para o resumo e a tarefa já saírem com a etapa nova.
         if (sugestao.precisa_humano) {
           conversa.mensagens.push({direction: 'outbound', message_type: 'text', body: sugestao.resposta, transcript: null,
             provider_timestamp: null, created_at: new Date().toISOString(), at: new Date().toISOString()});
-          if (await passarParaAtendente(db, empresa.name, agente, c.conversation_id, motivo || '', conversa, sugestao.lead_quente)) atribuidos++;
+          if (await passarParaAtendente(db, empresa.name, agente, c.conversation_id, motivo || '', conversa, sugestao.lead_quente || sugestao.temperatura === 'quente')) atribuidos++;
         }
       }
     } catch {
@@ -153,6 +169,6 @@ export async function runAgent() {
       console.error('[agente] resposta automática não enviada', {conversa: c.conversation_id});
     }
   }
-  if (respondidas || equipe) console.log(`[agente] automatico respondidas=${respondidas} equipe=${equipe} funil=${movidos} atendente=${atribuidos}`);
+  if (respondidas || equipe) console.log(`[agente] automatico respondidas=${respondidas} equipe=${equipe} funil=${movidos} atendente=${atribuidos} qualificados=${qualificados}`);
   return {respondidas, equipe};
 }

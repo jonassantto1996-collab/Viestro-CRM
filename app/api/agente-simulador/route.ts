@@ -54,7 +54,7 @@ export async function POST(req: Request) {
     const inicio = Date.now();
     const sugestao = await sugerirResposta({
       empresa: empresa.name, nicho: empresa.niche, agente, contato: 'Cliente (teste)',
-      mensagens, automatico: true, etapas, etapaAtual, modelo,
+      mensagens, automatico: true, etapas, etapaAtual, modelo, criterios: Array.isArray(empresa.settings?.criteria) ? empresa.settings.criteria : [],
     });
     return reply({sugestao, modelo: modelo === MODELOS.avancado ? 'avancado' : 'rapido', segundos: Math.round((Date.now() - inicio) / 100) / 10});
   } catch (e) {

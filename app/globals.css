@@ -564,3 +564,10 @@ body {
 .install-app{display:inline-flex;align-items:center;gap:6px;padding:5px 11px;border-radius:999px;border:1px solid #2b4463;background:transparent;color:#9fc4ee;font-size:12px;cursor:pointer;white-space:nowrap}
 .install-app:hover{border-color:#4da3ff;color:#e3ecf8}
 @media(max-width:600px){.install-app span{display:none}.install-app{padding:6px}}
+
+/* Temperatura do lead (marcada pelo agente): quente, morno, frio */
+.temp-tag{display:inline-flex;align-items:center;font-size:10.5px;font-weight:600;padding:1px 7px;border-radius:999px;margin-left:6px;vertical-align:middle;text-transform:lowercase}
+h3+.temp-tag{margin:4px 0 0}
+.temp-tag.quente{background:rgba(249,115,22,.18);color:#fdba74;border:1px solid rgba(249,115,22,.4)}
+.temp-tag.morno{background:rgba(234,179,8,.15);color:#fde68a;border:1px solid rgba(234,179,8,.35)}
+.temp-tag.frio{background:rgba(96,165,250,.14);color:#bfdbfe;border:1px solid rgba(96,165,250,.35)}

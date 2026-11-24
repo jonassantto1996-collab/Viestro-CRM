@@ -1,17 +1,17 @@
 import 'server-only';
-import {ferramentaPara, etapasDoAgente, lerSugestao, montarPedido, FERRAMENTA_RESUMO, pedidoResumo, lerResumo, resumoReserva, chamadaDoAgente, modeloDoAgente} from '@/lib/agente.mjs';
+import {ferramentaPara, etapasDoAgente, lerSugestao, montarPedido, FERRAMENTA_RESUMO, pedidoResumo, lerResumo, resumoReserva, chamadaDoAgente, modeloDoAgente, criteriosDoAgente} from '@/lib/agente.mjs';
 
 // Chamada ao Claude para o agente de atendimento. Chave só no servidor (ANTHROPIC_API_KEY na Vercel).
 // Modelo barato por padrão; CRM_AGENTE_MODELO troca sem mexer no código.
 export class ErroAgente extends Error {}
 
-type Entrada = {empresa: string; nicho: string; agente: Record<string, unknown>; contato: string; mensagens: {direction: string; message_type: string; body: string | null; transcript?: string | null; at: string}[]; automatico?: boolean; etapas?: string[]; etapaAtual?: string | null; modelo?: string};
+type Entrada = {empresa: string; nicho: string; agente: Record<string, unknown>; contato: string; mensagens: {direction: string; message_type: string; body: string | null; transcript?: string | null; at: string}[]; automatico?: boolean; etapas?: string[]; etapaAtual?: string | null; modelo?: string; criterios?: string[]};
 
 export async function sugerirResposta(entrada: Entrada) {
   const chave = process.env.ANTHROPIC_API_KEY;
   if (!chave) throw new ErroAgente('Falta configurar a chave da IA (ANTHROPIC_API_KEY) na Vercel.');
   const {sistema, usuario} = montarPedido(entrada);
-  const ferramenta = ferramentaPara(etapasDoAgente(entrada.agente, entrada.etapas));
+  const ferramenta = ferramentaPara(etapasDoAgente(entrada.agente, entrada.etapas), entrada.criterios || []);
   // Modelo da empresa (rápido/avançado); o simulador do dono pode forçar outro para comparar.
   const modelo = entrada.modelo || modeloDoAgente(entrada.agente, process.env.CRM_AGENTE_MODELO);
   const {beta, body} = chamadaDoAgente({modelo, sistema, usuario, ferramenta});
@@ -32,7 +32,7 @@ export async function sugerirResposta(entrada: Entrada) {
     throw new ErroAgente('A IA não respondeu agora. Tente de novo.');
   }
   const bloco = (d?.content || []).find((b: any) => b.type === 'tool_use' && b.name === ferramenta.name);
-  const sugestao = lerSugestao(bloco?.input, etapasDoAgente(entrada.agente, entrada.etapas));
+  const sugestao = lerSugestao(bloco?.input, etapasDoAgente(entrada.agente, entrada.etapas), criteriosDoAgente(entrada.criterios));
   // Registro sem conteúdo: só modelo e consumo, para acompanhar custo.
   console.log(`[agente] ${entrada.automatico ? 'automatico' : 'sugestao'} modelo=${d?.model || modelo} ok=${!!sugestao} parada=${d?.stop_reason ?? '?'} entrada=${d?.usage?.input_tokens ?? '?'} cache=${d?.usage?.cache_read_input_tokens ?? 0} saida=${d?.usage?.output_tokens ?? '?'}`);
   if (!sugestao) throw new ErroAgente('A IA não conseguiu sugerir uma resposta para esta conversa.');

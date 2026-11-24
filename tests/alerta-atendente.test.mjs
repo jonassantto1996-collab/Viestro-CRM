@@ -66,3 +66,14 @@ test('final do número: últimos 4 dígitos para o atendente achar o cliente', (
   assert.equal(clienteComFinal('', '5594981115653'), 'cliente do WhatsApp final 5653');
   assert.equal(clienteComFinal('João', null), 'João');
 });
+
+import {ordemDasContas} from '../lib/alerta-atendente.mjs';
+
+test('alerta: tenta o número da conversa e depois os outros com modelo aprovado', () => {
+  const contas = [{id: 'a', connection_status: 'connected'}, {id: 'b', connection_status: 'connected'}, {id: 'c', connection_status: 'disconnected'}];
+  assert.deepEqual(ordemDasContas(contas, 'b', ['a', 'b', 'c']), ['b', 'a']);
+  assert.deepEqual(ordemDasContas(contas, 'b', ['a']), ['a']); // conversa sem modelo aprovado: vai pelo outro
+  assert.deepEqual(ordemDasContas(contas, 'c', ['c']), []); // desconectado nunca
+  assert.deepEqual(ordemDasContas(contas, null, new Set(['b'])), ['b']);
+  assert.deepEqual(ordemDasContas([], 'a', ['a']), []);
+});

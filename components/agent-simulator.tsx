@@ -6,7 +6,7 @@ import {toast} from 'sonner';
 // Simulador do agente (só o dono da plataforma, em Configurações). Você escreve como cliente e vê
 // o que o agente responderia com a configuração salva da empresa. Nada é enviado nem gravado.
 type Empresa = {id: string; nome: string; temBase: boolean; ligado: boolean; modo: string; modelo: 'rapido' | 'avancado'; etapas: string[]};
-type Sugestao = {resposta: string; precisa_humano: boolean; motivo_humano: string; lead_quente: boolean; intencao: string; etapa?: string};
+type Sugestao = {resposta: string; precisa_humano: boolean; motivo_humano: string; lead_quente: boolean; intencao: string; etapa?: string; criterios?: string[]; temperatura?: string};
 type Msg = {de: 'cliente' | 'empresa'; texto: string; info?: Sugestao; modelo?: string; segundos?: number};
 const NOME_MODELO: Record<string, string> = {rapido: 'Rápido (Haiku)', avancado: 'Avançado (Sonnet)'};
 
@@ -84,6 +84,8 @@ export default function AgentSimulator() {
           {m.info.lead_quente && <em className="hot">🔥 Lead quente</em>}
           {m.info.precisa_humano && <em className="handoff">Passaria para o atendente{m.info.motivo_humano ? `: ${m.info.motivo_humano}` : ''}</em>}
           {m.info.etapa && <em>Moveria no funil para: {m.info.etapa}</em>}
+          {m.info.temperatura && <em className={m.info.temperatura === 'quente' ? 'hot' : ''}>Temperatura: {m.info.temperatura}</em>}
+          {!!m.info.criterios?.length && <em>Critérios: {m.info.criterios.join(', ')}</em>}
           {m.modelo && <em className="muted-tag">{NOME_MODELO[m.modelo] || m.modelo}{m.segundos ? ` · ${String(m.segundos).replace('.', ',')} s` : ''}</em>}
         </div>}
       </div>)}
