@@ -69,6 +69,7 @@ CRM próprio da Viestro Assessoria, reaproveitável para qualquer nicho (clínic
 - 2026-11-21 — WhatsApp do CRM claro (estilo WhatsApp: fundo branco, conversa bege, balão verde) e maior (cabeçalho compacto `.page-heading.is-compact`, altura até o fim da tela); estilos no fim de `app/globals.css` (bloco "WhatsApp claro e maior"). Resumo e alerta do atendente trazem "final 1234" do número (`finalDoNumero`/`clienteComFinal` em `lib/alerta-atendente.mjs`). Lead automático ligado também na Viestro.
 - 2026-11-24 — Domínio crm.viestroassessoria.com.br; app instalável (PWA)
 - 2026-11-24 — `NEXT_PUBLIC_SITE_URL` = https://crm.viestroassessoria.com.br (links de e-mail e conectores do Claude); domínio novo nas Redirect URLs do Supabase (Site URL do Supabase continua o antigo: projeto compartilhado). `vertice-crm-nu.vercel.app` segue ativo para os webhooks e conectores antigos. Foto de perfil do cliente: a API oficial do WhatsApp não fornece (só nome e número).
+- 2026-11-24 — Regtech: agente LIGADO no automático com Sonnet (`model: avancado`), 24 h; números 6088 e 1715 conectados (WABAs diferentes). 1715 bloqueado pela Meta para mensagens iniciadas pela empresa (141006); modelo `alerta_atendimento` pendente nos dois (no 1715 criado como MARKETING). CRM só sincroniza modelos ao abrir a tela de modelos da caixa de entrada.
 - 2026-10 — Primeira implantação planejada: clínica (reativação de pacientes antigos); manter o CRM genérico para outros nichos.
 
 ## Erros já resolvidos
