@@ -70,6 +70,10 @@ export async function runAgent() {
   const empresas = new Map<string, any>();
   let respondidas = 0, equipe = 0, movidos = 0, atribuidos = 0, qualificados = 0, fotosEnviadas = 0;
   for (const c of (candidatas || []) as {conversation_id: string; company_id: string; last_inbound_at: string}[]) {
+    // Reserva a conversa para esta mensagem: se outra rodada já está pensando nela, pula (uma chamada à IA só).
+    const {data: minha, error: errReserva} = await db.rpc('wa_agent_claim', {p_conversation: c.conversation_id, p_inbound_at: c.last_inbound_at});
+    // Erro na reserva (ex.: migration ainda não aplicada): segue como antes, sem travar o agente.
+    if (!errReserva && !minha) continue;
     try {
       if (!empresas.has(c.company_id)) {
         const {data} = await db.from('crm_companies').select('name,niche,settings').eq('id', c.company_id).single();
@@ -148,6 +152,8 @@ export async function runAgent() {
     } catch {
       // Sem conteúdo no log; a conversa fica para a equipe ver na caixa de entrada.
       console.error('[agente] resposta automática não enviada', {conversa: c.conversation_id});
+      // Solta a reserva para a próxima rodada tentar de novo sem esperar.
+      await db.rpc('wa_agent_release', {p_conversation: c.conversation_id, p_inbound_at: c.last_inbound_at}).then(() => null, () => null);
     }
   }
   if (respondidas || equipe) console.log(`[agente] automatico respondidas=${respondidas} equipe=${equipe} funil=${movidos} atendente=${atribuidos} qualificados=${qualificados} fotos=${fotosEnviadas}`);
