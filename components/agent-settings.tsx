@@ -29,13 +29,28 @@ export default function AgentSettings({company, admin, demo, onSave}: {company: 
   const [atendentes, setAtendentes] = useState<string>((company.settings?.agent?.attendants || []).join('\n'));
   const [telefones, setTelefones] = useState<Record<string, string>>(company.settings?.agent?.attendant_phones || {});
   useEffect(() => { setA({...AGENTE_PADRAO, ...(company.settings?.agent || {})}); setAtendentes((company.settings?.agent?.attendants || []).join('\n')); setTelefones(company.settings?.agent?.attendant_phones || {}); }, [company]);
+  const [numeros, setNumeros] = useState<{id: string; phone_e164: string; display_name?: string | null}[]>([]);
+  useEffect(() => {
+    if (demo) return;
+    fetch('/api/whatsapp?view=accounts').then(r => r.ok ? r.json() : null).then(d => { if (Array.isArray(d?.accounts)) setNumeros(d.accounts); }).catch(() => {});
+  }, [demo]);
   const nomes = atendentesDoTexto(atendentes);
+  // Dono de cada número: {"5594992086088": "Agna"}; na tela, escolhe-se o número de cada atendente.
+  const donos: Record<string, string> = a.number_owners || {};
+  const numeroDe = (nome: string) => Object.entries(donos).find(([, n]) => n === nome)?.[0] || '';
+  const escolherNumero = (nome: string, numero: string) => {
+    const novo = Object.fromEntries(Object.entries(donos).filter(([num, n]) => n !== nome && num !== numero));
+    set({number_owners: numero ? {...novo, [numero]: nome} : novo});
+  };
   const set = (patch: any) => setA((x: any) => ({...x, ...patch}));
 
   async function salvar() {
     const agente = {...a, name: a.name.trim(), knowledge: a.knowledge.trim(), sales: (a.sales || '').trim(), handoff: a.handoff.trim(), funnel: (a.funnel || '').trim(), attendants: nomes,
       // Só guarda telefone de quem está na lista; campo vazio = sem alerta no WhatsApp.
-      attendant_phones: Object.fromEntries(nomes.map(n => [n, normalizarTelefone(telefones[n])]).filter(([, t]) => t))};
+      attendant_phones: Object.fromEntries(nomes.map(n => [n, normalizarTelefone(telefones[n])]).filter(([, t]) => t)),
+      // Dono de número e relatório só para quem continua na lista de atendentes.
+      number_owners: Object.fromEntries(Object.entries(a.number_owners || {}).filter(([, n]) => nomes.includes(n as string))),
+      daily_report: nomes.includes(a.daily_report) ? a.daily_report : ''};
     const invalido = Object.entries(agente.attendant_phones).find(([, t]) => !telefoneValido(t as string));
     if (invalido) { toast.error(`Confira o WhatsApp de ${invalido[0]} (com DDD).`); return; }
     if (!agenteValido(agente)) {
@@ -93,7 +108,10 @@ export default function AgentSettings({company, admin, demo, onSave}: {company: 
           <option value="fora_expediente">Só fora do expediente</option>
         </select>
       </label>
-      {a.auto_when === 'fora_expediente' && <div className="form-row agent-office">
+      <label className="agent-toggle"><Switch checked={!!a.store_hours} disabled={!admin} onCheckedChange={(v: boolean) => set({store_hours: v})}/>
+        <span>{a.store_hours ? 'Horário da loja ligado' : 'Horário da loja desligado'}</span></label>
+      {a.store_hours && <small className="agent-hint">Com a loja aberta, o lead quente vai para o atendente na hora (alerta em até 2 minutos), e o agente continua atendendo até ele responder. Com a loja fechada, o agente atende, avisa o cliente que o atendente responde na abertura e o alerta só sai quando a loja abrir.</small>}
+      {(a.auto_when === 'fora_expediente' || a.store_hours) && <div className="form-row agent-office">
         <label className="field"><span>Dias de expediente</span>
           <select className="agent-select" disabled={!admin} value={a.office_days} onChange={e => set({office_days: e.target.value})}>
             <option value="seg-sex">Segunda a sexta</option><option value="seg-sab">Segunda a sábado</option>
@@ -110,10 +128,21 @@ export default function AgentSettings({company, admin, demo, onSave}: {company: 
         <div className="agent-phones">
           {nomes.map(n => <label key={n} className="agent-phone"><em>{n}</em>
             <input disabled={!admin} inputMode="tel" placeholder="(94) 99999-9999" maxLength={20} value={telefones[n] || ''} onChange={e => setTelefones(t => ({...t, [n]: e.target.value}))}/>
+            {numeros.length > 1 && <select className="agent-select" disabled={!admin} aria-label={`Número da loja de ${n}`} value={numeroDe(n)} onChange={e => escolherNumero(n, e.target.value)}>
+              <option value="">Sem número próprio</option>
+              {numeros.map(x => { const d = x.phone_e164.replace(/\D/g, ''); return <option key={x.id} value={d}>Dono do {x.display_name || x.phone_e164} (final {d.slice(-4)})</option>; })}
+            </select>}
           </label>)}
         </div>
-        <small>Número pessoal do atendente (não o da loja). A cada passagem ele recebe no WhatsApp: "Novo atendimento esperando você no CRM", com 🔥 nos leads quentes. Só funciona depois que a Meta aprovar o modelo "alerta_atendimento" no número da loja. Vazio = só o aviso dentro do CRM.</small>
+        <small>Número pessoal do atendente (não o da loja). A cada passagem ele recebe no WhatsApp: "Novo atendimento esperando você no CRM", com 🔥 nos leads quentes. Só funciona depois que a Meta aprovar o modelo "alerta_atendimento" no número da loja. Vazio = só o aviso dentro do CRM.{numeros.length > 1 ? ' Atendente dono de um número da loja recebe todas as passagens das conversas daquele número; quem não tem número entra no revezamento.' : ''}</small>
       </div>}
+      {nomes.length > 0 && a.store_hours && <label className="field"><span>Relatório diário no fechamento</span>
+        <select className="agent-select" disabled={!admin} value={nomes.includes(a.daily_report) ? a.daily_report : ''} onChange={e => set({daily_report: e.target.value})}>
+          <option value="">Ninguém</option>
+          {nomes.map(n => <option key={n} value={n}>{n}</option>)}
+        </select>
+        <small>No horário de fechar, a pessoa escolhida recebe no WhatsApp pessoal: conversas novas, leads quentes, passagens por atendente e atendimentos em aberto. Precisa do modelo "relatorio_diario" aprovado no número da loja.</small>
+      </label>}
       <ul className="agent-safety">
         <li><ShieldCheck size={14}/>Responde só com o que está na base de conhecimento.</li>
         <li><ShieldCheck size={14}/>Espera o cliente terminar de escrever antes de responder.</li>

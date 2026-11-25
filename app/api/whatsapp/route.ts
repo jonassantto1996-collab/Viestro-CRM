@@ -2,6 +2,8 @@ import {after} from 'next/server';
 import {sessionClient} from '@/lib/supabase/server';
 import {reply, body, sameOrigin} from '@/lib/http';
 import {drainOutbox, syncTemplates} from '@/lib/whatsapp-worker';
+import {serviceClient} from '@/lib/supabase/server';
+import {CAMPOS_CONTA, marcarLida, type Conta} from '@/lib/wa-provedor';
 import {waMetrics} from '@/lib/whatsapp-metrics.mjs';
 import {lerAgente} from '@/lib/agente.mjs';
 import {sugerirResposta, ErroAgente} from '@/lib/agente-ia';
@@ -62,18 +64,27 @@ export async function GET(req: Request) {
     }
 
     if (view === 'summary') {
-      const [{data, error}, passagens] = await Promise.all([
+      const [{data, error}, passagens, numeros] = await Promise.all([
         db.from('wa_conversations').select('unread_count').gt('unread_count', 0).limit(1000),
         // Passagens do agente ainda abertas (alerta do atendente). RLS: só as da empresa de quem está logado.
         db.from('crm_records').select('id,data,created_at').eq('kind', 'tasks')
           .eq('data->>source', 'agent_handoff').eq('data->>done', 'false').order('created_at', {ascending: false}).limit(20),
+        // Avisos dos números (pagamento, bloqueio, desconexão no fornecedor). RLS: só os da empresa.
+        db.from('wa_accounts').select('id,phone_e164,display_name,provider_alert_code,provider_alert_at').not('provider_alert_code', 'is', null).limit(10),
       ]);
       if (error) throw error;
       const alerts = (passagens.data || []).map((r: any) => ({
         id: r.id as string, title: String(r.data?.title || ''), owner: String(r.data?.owner || 'Equipe'),
         hot: r.data?.hot === true, created: r.created_at as string,
       }));
-      return reply({unread: (data || []).reduce((s, c) => s + (c.unread_count || 0), 0), alerts});
+      return reply({unread: (data || []).reduce((s, c) => s + (c.unread_count || 0), 0), alerts, accountAlerts: numeros.data || []});
+    }
+
+    if (view === 'accounts') {
+      // Números da empresa (RLS), para escolher o dono de cada número em Configurações.
+      const {data, error} = await db.from('wa_accounts').select('id,phone_e164,display_name,provider,connection_status').order('created_at');
+      if (error) throw error;
+      return reply({accounts: data});
     }
 
     if (view === 'templates') {
@@ -90,7 +101,7 @@ export async function GET(req: Request) {
     }
 
     let q = db.from('wa_conversations')
-      .select('id,status,category,unread_count,assigned_user_id,last_message_at,last_message_preview,last_inbound_at,last_outbound_at,first_inbound_at,first_response_at,service_window_expires_at,contact:wa_contacts(id,name,phone_e164,crm_lead_id,marketing_opt_out_at),account:wa_accounts(id,phone_e164,display_name,connection_status),agent:wa_agent_state(paused_until,paused_reason,handoff_at)')
+      .select('id,status,category,unread_count,assigned_user_id,last_message_at,last_message_preview,last_inbound_at,last_outbound_at,first_inbound_at,first_response_at,service_window_expires_at,contact:wa_contacts(id,name,phone_e164,crm_lead_id,marketing_opt_out_at),account:wa_accounts(id,phone_e164,display_name,connection_status,provider,provider_alert_code,provider_alert_at),agent:wa_agent_state(paused_until,paused_reason,handoff_at)')
       .order('last_message_at', {ascending: false, nullsFirst: false}).limit(300);
     const status = p.get('status');
     if (status && ['open', 'pending', 'resolved'].includes(status)) q = q.eq('status', status);
@@ -141,7 +152,21 @@ export async function POST(req: Request) {
       case 'mark_read': {
         if (!isUuid(b.conversation)) return reply({error: 'Dados inválidos'}, 400);
         const {error} = await db.rpc('crm_wa_mark_read', {p_conversation: b.conversation});
-        return error ? dbError(error) : reply({ok: true});
+        if (error) return dbError(error);
+        // Número do WasapFlow: avisa o cliente que a mensagem foi lida (os dois tiques azuis).
+        const {data: conv} = await db.from('wa_conversations').select('account:wa_accounts(provider)').eq('id', b.conversation).maybeSingle();
+        if ((conv as any)?.account?.provider === 'wasapflow' && process.env.SUPABASE_SECRET_KEY) {
+          const {data: ultima} = await db.from('wa_messages').select('external_message_id').eq('conversation_id', b.conversation)
+            .eq('direction', 'inbound').eq('source', 'api_inbound').order('created_at', {ascending: false}).limit(1).maybeSingle();
+          const conversa = b.conversation;
+          if (ultima?.external_message_id) after(async () => {
+            const sdb = serviceClient();
+            const {data: c} = await sdb.from('wa_conversations').select('account_id').eq('id', conversa).single();
+            const {data: conta} = await sdb.from('wa_accounts').select(CAMPOS_CONTA).eq('id', c?.account_id).single();
+            if (conta) await marcarLida(sdb, conta as Conta, ultima.external_message_id!);
+          });
+        }
+        return reply({ok: true});
       }
       case 'create_lead': {
         if (!isUuid(b.conversation)) return reply({error: 'Dados inválidos'}, 400);

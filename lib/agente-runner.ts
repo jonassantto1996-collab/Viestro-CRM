@@ -1,9 +1,9 @@
 import 'server-only';
 import {serviceClient} from '@/lib/supabase/server';
-import {lerAgente, respondeSozinho, MAX_RESPOSTAS_DIA} from '@/lib/agente.mjs';
+import {lerAgente, respondeSozinho, quandoAvisar, MAX_RESPOSTAS_DIA} from '@/lib/agente.mjs';
 import {sugerirResposta, resumirConversa} from '@/lib/agente-ia';
-import {ALERTA_MODELO, envioDoAlerta, deveAvisar, ehAtendente, telefoneDoAtendente, finalDoNumero, clienteComFinal, ordemDasContas} from '@/lib/alerta-atendente.mjs';
-import {buildSendBody, classifyGraphResponse, graphBase} from '@/lib/whatsapp.mjs';
+import {envioDoAlerta, deveAvisar, ehAtendente, telefoneDoAtendente, finalDoNumero, clienteComFinal} from '@/lib/alerta-atendente.mjs';
+import {agendarAlerta} from '@/lib/alertas-equipe';
 import {fotosParaEnviar, fotosJaEnviadas} from '@/lib/fotos-agente.mjs';
 
 // Modo automático do agente. Roda logo depois que uma mensagem do cliente chega (webhook)
@@ -32,58 +32,28 @@ async function lerConversa(db: Db, companyId: string, conversationId: string) {
     waId: ((conv.data as any)?.contact?.wa_id || null) as string | null, accountId: ((conv.data as any)?.account_id || null) as string | null, companyId, mensagens};
 }
 
-// Alerta no WhatsApp do atendente. Só sai com o modelo aprovado pela Meta no número da empresa;
-// sem modelo aprovado (ou sem telefone), não envia nada. Nunca registra telefone nem conteúdo em log.
-async function avisarAtendente(db: Db, companyId: string, accountId: string | null, telefone: string, payload: ReturnType<typeof envioDoAlerta>) {
-  const {data: contas} = await db.from('wa_accounts').select('id,phone_number_id,connection_status').eq('company_id', companyId);
-  const ids = (contas || []).map(c => c.id);
-  if (!ids.length) return false;
-  const aprovadas = async () => {
-    const {data} = await db.from('wa_templates').select('account_id').in('account_id', ids)
-      .eq('name', ALERTA_MODELO.name).eq('language', ALERTA_MODELO.language).eq('status', 'APPROVED');
-    return new Set((data || []).map(t => t.account_id as string));
-  };
-  let ok = await aprovadas();
-  if (!ok.size) {
-    // A Meta não avisa quando aprova um modelo: busca uma vez (no máximo a cada 60 s por número).
-    try { const {syncTemplates} = await import('@/lib/whatsapp-worker'); await syncTemplates(companyId); ok = await aprovadas(); } catch {}
-  }
-  for (const id of ordemDasContas(contas || [], accountId, ok)) {
-    const conta = (contas || []).find(c => c.id === id);
-    const {data: token} = await db.rpc('wa_account_token', {p_account: id});
-    if (!conta?.phone_number_id || !token) continue;
-    try {
-      const res = await fetch(`${graphBase(process.env.WHATSAPP_GRAPH_BASE)}/${conta.phone_number_id}/messages`, {
-        method: 'POST', headers: {Authorization: `Bearer ${token}`, 'Content-Type': 'application/json'},
-        body: JSON.stringify(buildSendBody('template', payload, telefone)), signal: AbortSignal.timeout(15000), cache: 'no-store',
-      });
-      const r = classifyGraphResponse(res.status, await res.json().catch(() => null));
-      if (r.ok) return true;
-      console.error('[agente] alerta do atendente não enviado por um número; tentando o próximo', {code: 'code' in r ? r.code : undefined});
-    } catch {
-      console.error('[agente] alerta do atendente não enviado por um número; tentando o próximo', {code: 'rede'});
-    }
-  }
-  return false;
-}
-
 // Lead quente: o agente passou para a equipe. O banco escolhe o atendente (alternado) e cria a tarefa;
 // aqui só se escreve o resumo. Falha aqui nunca desfaz a passagem (a conversa já está Pendente).
+// `soQuente`: lead ficou quente mas o cliente não pediu a equipe; o agente segue atendendo e o dono do
+// número é avisado (com a loja aberta, na hora; fechada, na abertura). Se já havia passagem quente
+// aberta, não faz nada (nem gasta outro resumo).
 async function passarParaAtendente(db: Db, empresa: string, agente: Record<string, any>, conversationId: string, motivo: string,
-  conversa: Awaited<ReturnType<typeof lerConversa>>, quente = false) {
+  conversa: Awaited<ReturnType<typeof lerConversa>>, quente = false, soQuente = false) {
   try {
-    const final = finalDoNumero(conversa.waId);
-    // Primeira linha do resumo: o final do número, para achar o cliente no celular mesmo sem contato salvo.
-    const resumo = (final ? `WhatsApp: final ${final}\n` : '') + await resumirConversa({empresa, contato: conversa.contato, motivo, mensagens: conversa.mensagens});
     // Tarefa aberta antes desta passagem: decide se o atendente é avisado de novo.
     const {data: antes} = await db.from('crm_records').select('data').eq('kind', 'tasks').eq('data->>source', 'agent_handoff')
       .eq('data->>conversationId', conversationId).eq('data->>done', 'false').limit(1).maybeSingle();
+    if (soQuente && (antes as any)?.data?.hot === true) return null;
+    const final = finalDoNumero(conversa.waId);
+    // Primeira linha do resumo: o final do número, para achar o cliente no celular mesmo sem contato salvo.
+    const resumo = (final ? `WhatsApp: final ${final}\n` : '') + await resumirConversa({empresa, contato: conversa.contato, motivo, mensagens: conversa.mensagens});
     const {data, error} = await db.rpc('wa_agent_assign', {p_conversation: conversationId, p_summary: resumo, p_hot: quente});
     if (error) throw error;
     const atendente = data as string | null;
     const telefone = telefoneDoAtendente(agente, atendente);
     if (telefone && deveAvisar({antes: antes ? {hot: (antes as any).data?.hot === true} : null, quente})) {
-      await avisarAtendente(db, conversa.companyId, conversa.accountId, telefone, envioDoAlerta({atendente, cliente: clienteComFinal(conversa.contato, conversa.waId), motivo, quente}));
+      await agendarAlerta(db, conversationId, telefone,
+        envioDoAlerta({atendente, cliente: clienteComFinal(conversa.contato, conversa.waId), motivo, quente}), quandoAvisar(agente));
     }
     return atendente;
   } catch {
@@ -165,10 +135,14 @@ export async function runAgent() {
           if (qualificou) qualificados++;
         }
         // Depois de mover no funil, para o resumo e a tarefa já saírem com a etapa nova.
-        if (sugestao.precisa_humano) {
+        const quente = Boolean(sugestao.lead_quente || sugestao.temperatura === 'quente');
+        // Só empresas com horário da loja ligado (Regtech) passam o lead quente sem o cliente pedir a equipe.
+        if (sugestao.precisa_humano || (quente && agente.store_hours)) {
           conversa.mensagens.push({direction: 'outbound', message_type: 'text', body: sugestao.resposta, transcript: null,
             provider_timestamp: null, created_at: new Date().toISOString(), at: new Date().toISOString()});
-          if (await passarParaAtendente(db, empresa.name, agente, c.conversation_id, motivo || '', conversa, sugestao.lead_quente || sugestao.temperatura === 'quente')) atribuidos++;
+          // Lead quente sem pedido de equipe: o agente continua e o dono do número é avisado (até 2 min com a loja aberta).
+          if (await passarParaAtendente(db, empresa.name, agente, c.conversation_id, motivo || (quente ? 'Lead quente: intenção de compra' : ''),
+            conversa, quente, !sugestao.precisa_humano)) atribuidos++;
         }
       }
     } catch {
