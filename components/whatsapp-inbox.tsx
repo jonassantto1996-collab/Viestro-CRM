@@ -9,6 +9,7 @@ import {Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription} fro
 import {Sheet, SheetContent, SheetHeader, SheetTitle, SheetDescription} from '@/components/ui/sheet';
 import {toast} from 'sonner';
 import {waDemo, waDemoSugestoes} from '@/lib/whatsapp-demo';
+import {AvisosDosNumeros, type AvisoNumero} from '@/components/numero-avisos';
 
 type Member = {id: string; name: string; role?: string};
 type Props = {
@@ -424,6 +425,7 @@ export default function WhatsAppInbox({demo, members, me, onOpenLead, onLeadCrea
       {/* Lista */}
       <section className="panel wa-list" aria-label="Conversas">
         <div className="wa-list-head">
+          <AvisosDosNumeros compacto avisos={[...new Map(conversations.map(c => c.account).filter(a => a?.provider_alert_code).map(a => [a!.id, a!])).values()] as AvisoNumero[]} />
           <div className="wa-list-title">
             <h2>Conversas</h2>
             {conversations.length > 0 && <span>{conversations.length}</span>}

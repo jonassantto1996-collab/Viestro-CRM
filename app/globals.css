@@ -572,3 +572,12 @@ h3+.temp-tag{margin:4px 0 0}
 .temp-tag.quente{background:rgba(249,115,22,.18);color:#fdba74;border:1px solid rgba(249,115,22,.4)}
 .temp-tag.morno{background:rgba(234,179,8,.15);color:#fde68a;border:1px solid rgba(234,179,8,.35)}
 .temp-tag.frio{background:rgba(96,165,250,.14);color:#bfdbfe;border:1px solid rgba(96,165,250,.35)}
+
+/* Avisos do número do WhatsApp (fornecedor: pagamento, bloqueio, desconexão, agente da Meta) */
+.number-alerts{display:grid;gap:6px;margin:0 0 12px}
+.number-alerts p{display:flex;gap:8px;align-items:flex-start;margin:0;padding:9px 12px;border-radius:10px;font-size:13px;line-height:1.4;background:#3a2f12;border:1px solid #8a6a1f;color:#f5dfa6}
+.number-alerts p.is-grave{background:#3b1518;border-color:#9b3a40;color:#ffd0d3}
+.number-alerts p svg{flex:none;margin-top:1px}
+.number-alerts.is-compact p{font-size:12px;padding:7px 10px}
+.agent-hint{display:block;margin:-4px 0 10px;color:#8ea2bd;font-size:12.5px;line-height:1.45}
+.agent-phone select{grid-column:1/-1;margin-top:4px}

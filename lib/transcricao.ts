@@ -1,6 +1,6 @@
 import 'server-only';
 import {serviceClient} from '@/lib/supabase/server';
-import {graphBase} from '@/lib/whatsapp.mjs';
+import {baixarMidia, CAMPOS_CONTA, type Conta} from '@/lib/wa-provedor';
 
 // Transcreve os áudios que os clientes mandam no WhatsApp (OpenAI, chave só no servidor).
 // Só áudios recebidos nos últimos 15 minutos; cada áudio é "reservado" antes (status running)
@@ -19,6 +19,7 @@ export async function transcreverPendentes(limite = 5) {
   if (error) throw error;
   let transcritos = 0;
   const tokens = new Map<string, string | null>();
+  const contas = new Map<string, Conta | null>();
   for (const m of (data || []) as any[]) {
     // Reserva: se outra rodada já pegou, pula
     const {data: reservado} = await db.from('wa_messages').update({transcript_status: 'running'})
@@ -29,25 +30,17 @@ export async function transcreverPendentes(limite = 5) {
     let texto: string | null = null;
     try {
       if (!m.media_id || !conta) { status = 'skipped'; throw new Error('sem mídia'); }
-      if (!tokens.has(conta)) {
-        const t = await db.rpc('wa_account_token', {p_account: conta});
-        tokens.set(conta, t.error ? null : (t.data as string | null));
+      if (!contas.has(conta)) {
+        const {data: c} = await db.from('wa_accounts').select(CAMPOS_CONTA).eq('id', conta).maybeSingle();
+        contas.set(conta, (c as Conta | null) ?? null);
       }
-      const token = tokens.get(conta);
-      if (!token) throw new Error('sem token');
-      const base = graphBase(process.env.WHATSAPP_GRAPH_BASE);
-      const info = await fetch(`${base}/${encodeURIComponent(m.media_id)}`, {headers: {Authorization: `Bearer ${token}`}, signal: AbortSignal.timeout(10_000), cache: 'no-store'});
-      const meta: any = await info.json().catch(() => null);
-      if (!info.ok || typeof meta?.url !== 'string') throw new Error('mídia indisponível');
-      if (Number(meta.file_size) > MAX_BYTES) { status = 'skipped'; throw new Error('grande'); }
-      // O arquivo só é baixado do servidor da Meta, com o token do número
-      const url = new URL(meta.url);
-      if (!/(^|\.)(fbsbx\.com|facebook\.com|whatsapp\.net|fbcdn\.net)$/.test(url.hostname)) throw new Error('origem inesperada');
-      const arquivo = await fetch(url, {headers: {Authorization: `Bearer ${token}`}, signal: AbortSignal.timeout(15_000), cache: 'no-store'});
-      if (!arquivo.ok) throw new Error('download falhou');
-      const bytes = await arquivo.arrayBuffer();
-      if (bytes.byteLength > MAX_BYTES) { status = 'skipped'; throw new Error('grande'); }
-      const tipo = String(meta.mime_type || 'audio/ogg').split(';')[0];
+      const dadosConta = contas.get(conta);
+      if (!dadosConta) throw new Error('sem conta');
+      // Meta (EasyCoexistence) ou WasapFlow, pelo fornecedor do número
+      const midia = await baixarMidia(db, dadosConta, m.media_id, MAX_BYTES, tokens);
+      if ('grande' in midia) { status = 'skipped'; throw new Error('grande'); }
+      const {bytes} = midia;
+      const tipo = midia.mime || 'audio/ogg';
       const form = new FormData();
       form.append('file', new Blob([bytes], {type: tipo}), tipo.includes('mpeg') ? 'audio.mp3' : tipo.includes('mp4') ? 'audio.m4a' : 'audio.ogg');
       form.append('model', process.env.CRM_TRANSCRICAO_MODELO || 'gpt-4o-mini-transcribe');

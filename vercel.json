@@ -15,6 +15,9 @@
     },
     "app/api/whatsapp/worker/route.ts": {
       "maxDuration": 60
+    },
+    "app/api/webhooks/wasapflow/[key]/route.ts": {
+      "maxDuration": 60
     }
   }
 }
