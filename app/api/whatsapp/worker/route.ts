@@ -3,7 +3,7 @@ import {reply} from '@/lib/http';
 import {drainEvents, drainOutbox} from '@/lib/whatsapp-worker';
 import {runAgent} from '@/lib/agente-runner';
 import {transcreverPendentes} from '@/lib/transcricao';
-import {enviarAlertasPendentes, enviarRelatoriosDiarios} from '@/lib/alertas-equipe';
+import {enviarAlertasPendentes, enviarRelatoriosDiarios, rodarRemarketing} from '@/lib/alertas-equipe';
 
 export const dynamic = 'force-dynamic';
 
@@ -20,10 +20,12 @@ export async function GET(req: Request) {
     const events = await drainEvents();
     const audios = await transcreverPendentes().catch(() => null);
     const agente = await runAgent().catch(() => null);
+    // Remarketing entra na fila antes do envio, para sair nesta mesma rodada.
+    const remarketing = await rodarRemarketing().catch(() => null);
     const outbox = await drainOutbox();
     const alertas = await enviarAlertasPendentes().catch(() => null);
     const relatorios = await enviarRelatoriosDiarios().catch(() => null);
-    return reply({events, audios, agente, outbox, alertas, relatorios});
+    return reply({events, audios, agente, remarketing, outbox, alertas, relatorios});
   } catch {
     return reply({error: 'Worker indisponível'}, 503);
   }

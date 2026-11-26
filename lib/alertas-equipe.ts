@@ -87,3 +87,23 @@ export async function enviarRelatoriosDiarios(agora = new Date()) {
   }
   return {enviados};
 }
+
+/**
+ * Remarketing: uma rodada por empresa com o remarketing ligado. O banco (wa_remarketing_run) decide tudo —
+ * horário, limite diário distribuído ao longo do dia, modelo aprovado, número e quem recebe — e põe na fila;
+ * o envio sai logo depois, no drainOutbox do worker. Sem conteúdo nem telefone no log.
+ */
+export async function rodarRemarketing(agora = new Date()) {
+  const db = serviceClient();
+  const {data: empresas, error} = await db.from('crm_companies').select('id').eq('settings->remarketing->>enabled', 'true');
+  if (error) throw error;
+  let naFila = 0;
+  for (const e of empresas || []) {
+    const {data, error: err} = await db.rpc('wa_remarketing_run', {p_company: e.id, p_now: agora.toISOString(), p_max: 4});
+    if (err) { console.error('[remarketing] rodada adiada', {empresa: e.id, code: err.code}); continue; }
+    const n = Number((data as any)?.queued || 0);
+    if (n) console.log(`[remarketing] empresa=${e.id} na_fila=${n} cota=${(data as any)?.quota ?? '?'}`);
+    naFila += n;
+  }
+  return {naFila};
+}

@@ -581,3 +581,11 @@ h3+.temp-tag{margin:4px 0 0}
 .number-alerts.is-compact p{font-size:12px;padding:7px 10px}
 .agent-hint{display:block;margin:-4px 0 10px;color:#8ea2bd;font-size:12.5px;line-height:1.45}
 .agent-phone select{grid-column:1/-1;margin-top:4px}
+
+/* Remarketing automático (Configurações) */
+.remarketing-panel{margin-top:18px;border-top:1px solid #1d2c40;padding-top:14px}
+.remarketing-panel h3{margin:0;font-size:15px}
+.remarketing-stats{display:grid;grid-template-columns:repeat(auto-fit,minmax(120px,1fr));gap:10px;margin-top:10px}
+.remarketing-stats div{background:#0f1c2e;border:1px solid #1d2c40;border-radius:10px;padding:10px 12px;display:grid;gap:2px}
+.remarketing-stats b{font-size:20px;color:#e6eefa}
+.remarketing-stats span{font-size:12px;color:#8ea2bd}
