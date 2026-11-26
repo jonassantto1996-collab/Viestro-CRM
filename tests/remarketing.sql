@@ -32,11 +32,11 @@ grant select on fx to authenticated, service_role;
 
 -- Modelos aprovados (empresa A: os três nos dois números; empresa B: só o primeiro)
 insert into public.wa_templates (company_id, account_id, name, language, category, status, components)
-select (select a from fx), acc, nome, 'pt_BR', 'MARKETING', 'APPROVED', jsonb_build_array(jsonb_build_object('type','BODY','text','{{1}}, ' || nome))
+select (select a from fx), acc, nome, 'pt_BR', 'MARKETING', 'APPROVED', jsonb_build_array(jsonb_build_object('type','BODY','text','Oi, {{1}}! ' || nome))
 from (select unnest(array[(select c6088 from fx), (select c1715 from fx)]) acc) x,
      unnest(array['remarketing_parcela','remarketing_economia','remarketing_ultima']) nome;
 insert into public.wa_templates (company_id, account_id, name, language, category, status, components)
-select b, cb1, 'remarketing_parcela', 'pt_BR', 'MARKETING', 'APPROVED', '[{"type":"BODY","text":"{{1}}, parcela"}]' from fx;
+select b, cb1, 'remarketing_parcela', 'pt_BR', 'MARKETING', 'APPROVED', '[{"type":"BODY","text":"Oi, {{1}}! parcela"}]' from fx;
 
 update public.crm_companies set settings = settings || jsonb_build_object(
   'agent', jsonb_build_object('enabled', true, 'mode', 'automatico', 'name', 'Assistente', 'tone', 'acolhedor', 'knowledge', repeat('x', 40), 'handoff', '',
@@ -75,8 +75,8 @@ select crm_private.wa_run_events(100);
 
 do $$ declare r jsonb; n int; v_acc uuid; begin
   -- 0. Auxiliares
-  if crm_private.primeiro_nome('maria souza') <> 'Maria' or crm_private.primeiro_nome('😀🛵') <> 'Olá' or crm_private.primeiro_nome('123') <> 'Olá'
-     or crm_private.primeiro_nome('') <> 'Olá' or crm_private.primeiro_nome('  JOÃO  pedro') <> 'João' or crm_private.primeiro_nome(null) <> 'Olá' then
+  if crm_private.primeiro_nome('maria souza') <> 'Maria' or crm_private.primeiro_nome('😀🛵') <> 'tudo bem' or crm_private.primeiro_nome('123') <> 'tudo bem'
+     or crm_private.primeiro_nome('') <> 'tudo bem' or crm_private.primeiro_nome('  JOÃO  pedro') <> 'João' or crm_private.primeiro_nome(null) <> 'tudo bem' then
     raise exception 'Falha 0a: primeiro nome'; end if;
   if not (crm_private.pediu_para_sair('SAIR') and crm_private.pediu_para_sair(' parar ') and crm_private.pediu_para_sair('Stop!')
           and crm_private.pediu_para_sair('não quero mais') and crm_private.pediu_para_sair('Nao quero mais receber.')) then raise exception 'Falha 0b'; end if;
@@ -100,9 +100,9 @@ do $$ declare r jsonb; n int; v_acc uuid; begin
   if (select account_id from public.wa_remarketing_sends s, ld where s.lead_id = ld.l3) <> (select c1715 from fx) then raise exception 'Falha 3c: dono Cleudo'; end if;
   if (select account_id from public.wa_remarketing_sends s, ld where s.lead_id = ld.l1) is null then raise exception 'Falha 3d: revezamento'; end if;
 
-  -- 4. Mensagem e fila: modelo com o primeiro nome (ou "Olá"), saída do agente, registro com o lead
-  if (select m.body from public.wa_remarketing_sends s join public.wa_messages m on m.id = s.message_id, ld where s.lead_id = ld.l1) <> 'Maria, remarketing_parcela' then raise exception 'Falha 4a: nome'; end if;
-  if (select m.body from public.wa_remarketing_sends s join public.wa_messages m on m.id = s.message_id, ld where s.lead_id = ld.l3) <> 'Olá, remarketing_parcela' then raise exception 'Falha 4b: Olá'; end if;
+  -- 4. Mensagem e fila: modelo com o primeiro nome (ou "tudo bem"), saída do agente, registro com o lead
+  if (select m.body from public.wa_remarketing_sends s join public.wa_messages m on m.id = s.message_id, ld where s.lead_id = ld.l1) <> 'Oi, Maria! remarketing_parcela' then raise exception 'Falha 4a: nome'; end if;
+  if (select m.body from public.wa_remarketing_sends s join public.wa_messages m on m.id = s.message_id, ld where s.lead_id = ld.l3) <> 'Oi, tudo bem! remarketing_parcela' then raise exception 'Falha 4b: tudo bem'; end if;
   if (select o.payload->'template'->'components'->0->'parameters'->0->>'text' from public.wa_remarketing_sends s join public.wa_outbox o on o.message_id = s.message_id, ld where s.lead_id = ld.l2) <> 'Joana' then raise exception 'Falha 4c: parâmetro'; end if;
   if exists (select 1 from public.wa_remarketing_sends s join public.wa_messages m on m.id = s.message_id where s.company_id = (select a from fx) and (m.source <> 'agent' or m.message_type <> 'template' or m.message_status <> 'queued')) then raise exception 'Falha 4d'; end if;
   if (select count(*) from public.crm_records r2, ld where r2.kind = 'activity' and r2.data->>'leadId' = ld.l1::text and r2.data->>'text' like 'Remarketing enviado (tentativa 1%') <> 1 then raise exception 'Falha 4e: atividade'; end if;

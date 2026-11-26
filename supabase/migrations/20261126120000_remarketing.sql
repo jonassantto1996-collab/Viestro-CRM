@@ -40,10 +40,10 @@ exception when others then
   return null;
 end $$;
 
--- Primeiro nome para o modelo ({{1}}): só letras, 2 a 20; emoji, número ou vazio viram "Olá".
+-- Primeiro nome para o modelo ("Oi, {{1}}!"): só letras, 2 a 20; emoji, número ou vazio viram "tudo bem" ("Oi, tudo bem!").
 create function crm_private.primeiro_nome(p text) returns text
 language sql immutable set search_path = '' as $$
-  select case when w ~ '^[A-Za-zÀ-ÖØ-öø-ÿ]{2,20}$' then upper(left(w, 1)) || lower(substr(w, 2)) else 'Olá' end
+  select case when w ~ '^[A-Za-zÀ-ÖØ-öø-ÿ]{2,20}$' then upper(left(w, 1)) || lower(substr(w, 2)) else 'tudo bem' end
   from (select split_part(regexp_replace(trim(coalesce(p, '')), '[[:space:]]+', ' ', 'g'), ' ', 1) w) x
 $$;
 

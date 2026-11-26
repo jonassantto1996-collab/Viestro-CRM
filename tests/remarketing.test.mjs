@@ -29,6 +29,7 @@ test('três modelos MARKETING pt_BR, um por tentativa, com {{1}} e saída por SA
     assert.equal(m.category, 'MARKETING');
     assert.equal(m.language, 'pt_BR');
     assert.equal((m.text.match(/\{\{\d\}\}/g) || []).length, 1);
+    assert.match(m.text, /^Oi, \{\{1\}\}! [A-ZÚ]/); // não começa com variável (a Meta recusa)
     assert.match(m.text, /SAIR/);
     const corpo = corpoDoModelo(m);
     assert.equal(corpo.category, 'MARKETING');
