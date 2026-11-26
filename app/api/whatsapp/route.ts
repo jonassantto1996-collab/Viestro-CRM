@@ -80,6 +80,20 @@ export async function GET(req: Request) {
       return reply({unread: (data || []).reduce((s, c) => s + (c.unread_count || 0), 0), alerts, accountAlerts: numeros.data || []});
     }
 
+    if (view === 'remarketing') {
+      // Painel do remarketing: números (função do banco, só a própria empresa) e envios dos últimos 30 dias (RLS).
+      const desde = new Date(Date.now() - 30 * 86_400_000).toISOString();
+      const [resumo, envios] = await Promise.all([
+        db.rpc('crm_remarketing_summary'),
+        db.from('wa_remarketing_sends')
+          .select('id,created_at,attempt,template_name,outcome,responded_at,lead:crm_records(nome:data->>name),account:wa_accounts(phone_e164,display_name),message:wa_messages(message_status,error_code)')
+          .gte('created_at', desde).order('created_at', {ascending: false}).limit(2000),
+      ]);
+      if (resumo.error) throw resumo.error;
+      if (envios.error) throw envios.error;
+      return reply({resumo: resumo.data, envios: envios.data || []});
+    }
+
     if (view === 'accounts') {
       // Números da empresa (RLS), para escolher o dono de cada número em Configurações.
       const {data, error} = await db.from('wa_accounts').select('id,phone_e164,display_name,provider,connection_status').order('created_at');
