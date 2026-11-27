@@ -68,7 +68,7 @@ export async function POST(req: Request, {params}: Ctx) {
       desconhecidos.set(n.desconhecido, vezes);
       if (deveRegistrar(vezes)) console.warn('[wasapflow] evento não tratado', {evento: n.desconhecido, vezes});
     }
-    if (n.semTelefone) console.warn('[wasapflow] mensagem sem telefone (só BSUID) ignorada', {quantas: n.semTelefone});
+    if (n.semTelefone) console.warn('[wasapflow] mensagem sem telefone e sem ID do cliente ignorada', {quantas: n.semTelefone});
     if (n.aviso || n.templates) {
       try {
         const db = serviceClient();

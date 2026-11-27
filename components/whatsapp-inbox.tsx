@@ -2,7 +2,7 @@
 import {useCallback, useEffect, useMemo, useRef, useState} from 'react';
 import {
   AlertTriangle, ArrowLeft, Check, CheckCheck, Clock, FileText, Info, Lock, MessageCircle, Phone,
-  Bot, Mic, Search, Send, ShieldCheck, Smartphone, Sparkles, User, UserPlus, Users,
+  Bot, Eye, Mic, Search, Send, ShieldCheck, Smartphone, Sparkles, User, UserPlus, Users,
 } from 'lucide-react';
 import {Select, SelectTrigger, SelectValue, SelectContent, SelectItem} from '@/components/ui/select';
 import {Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription} from '@/components/ui/dialog';
@@ -65,7 +65,7 @@ const ERRORS: Record<string, string> = {
 const SOURCE: Record<string, string> = {crm: 'Pelo CRM', app_echo: 'Pelo celular', agent: 'Agente', history_sync: '', api_inbound: ''};
 
 const initials = (s: string) => s.split(' ').filter(w => /^\p{L}/u.test(w)).map(p => p[0]).slice(0, 2).join('').toUpperCase();
-const contactName = (c: any) => c?.contact?.name || phone(c?.contact?.phone_e164) || 'Contato';
+const contactName = (c: any) => c?.contact?.name || phone(c?.contact?.phone_e164) || (c?.contact ? 'Cliente (telefone oculto)' : 'Contato');
 function phone(p?: string) {
   const d = (p || '').replace(/\D/g, '');
   if (!d) return p || '';
@@ -353,9 +353,12 @@ export default function WhatsAppInbox({demo, members, me, onOpenLead, onLeadCrea
       <div className="wa-contact-card">
         <Avatar c={selected} size="lg" />
         <strong>{contactName(selected)}</strong>
-        <a href={`https://wa.me/${(selected.contact?.phone_e164 || '').replace(/\D/g, '')}`} target="_blank" rel="noreferrer">
-          <Phone size={13} /> {selected.contact?.name ? phone(selected.contact?.phone_e164) : 'Abrir no WhatsApp'}
-        </a>
+        {selected.contact?.phone_e164 ? (
+          <a href={`https://wa.me/${(selected.contact?.phone_e164 || '').replace(/\D/g, '')}`} target="_blank" rel="noreferrer">
+            <Phone size={13} /> {selected.contact?.name ? phone(selected.contact?.phone_e164) : 'Abrir no WhatsApp'}
+          </a>
+        ) : <small><Lock size={12} /> Telefone oculto pelo cliente · responda por aqui</small>}
+        {selected.ad_referral && <small className="wa-ad-origin">📣 Veio do anúncio: {selected.ad_referral.headline || selected.ad_referral.source_id || 'Meta'}</small>}
         <small>Recebido em {selected.account?.display_name || phone(selected.account?.phone_e164)}</small>
       </div>
 
@@ -533,6 +536,8 @@ export default function WhatsAppInbox({demo, members, me, onOpenLead, onLeadCrea
                       <p>{m.body || `[${m.message_type}]`}</p>
                       {m.message_type === 'audio' && m.transcript && <p className="wa-transcript"><Mic size={12} /> {m.transcript}</p>}
                       {m.message_type === 'audio' && m.transcript_status === 'running' && <p className="wa-transcript pending"><Mic size={12} /> Transcrevendo…</p>}
+                      {(m.message_type === 'image' || m.message_type === 'document') && m.transcript && <p className="wa-transcript"><Eye size={12} /> {m.transcript}</p>}
+                      {m.message_type === 'audio' && m.direction === 'inbound' && ['failed', 'skipped'].includes(m.transcript_status) && <p className="wa-transcript pending"><Mic size={12} /> Áudio sem transcrição</p>}
                       <span className="wa-msg-meta">
                         {SOURCE[m.source] && <em>{m.source === 'app_echo' && <Smartphone size={11} />}{SOURCE[m.source]}{m.source === 'crm' && memberName(m.sent_by_user_id) ? ` · ${memberName(m.sent_by_user_id)}` : ''}</em>}
                         <time>{new Date(m.at).toLocaleTimeString('pt-BR', {hour: '2-digit', minute: '2-digit'})}</time>

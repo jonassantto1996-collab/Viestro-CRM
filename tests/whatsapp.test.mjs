@@ -96,3 +96,27 @@ test('falha de rede: só repete se a conexão nunca abriu (evita mensagem duplic
   assert.deepEqual(classifyNetworkError({name: 'TimeoutError'}), {ok: false, code: 'unknown_result', retryable: false});
   assert.equal(classifyNetworkError({cause: {code: 'ECONNRESET'}}).retryable, false);
 });
+
+test('Meta: telefone oculto entra pelo BSUID (from_user_id / contacts.user_id), anúncio vai no referral', async () => {
+  const {normalizeWhatsApp, buildSendBody, bsuidDe, telefoneDe, referralDoAnuncio} = await import('../lib/whatsapp.mjs');
+  const corpo = {object: 'whatsapp_business_account', entry: [{changes: [{value: {metadata: {phone_number_id: '123456'},
+    contacts: [{user_id: 'BR.1349120865', profile: {name: 'Cliente Anúncio'}}],
+    messages: [{id: 'wamid.Z', from_user_id: 'BR.1349120865', timestamp: '1764000000', type: 'text', text: {body: 'Oi, vi o anúncio'},
+      referral: {source_type: 'ad', source_id: '1202', headline: 'ZUB Paris em 12x', source_url: 'https://fb.me/x'}}]}}]}]};
+  const [ev] = normalizeWhatsApp(corpo);
+  assert.equal(ev.payload.wa_id, undefined);
+  assert.equal(ev.payload.bsuid, 'BR.1349120865');
+  assert.equal(ev.payload.name, 'Cliente Anúncio');
+  assert.deepEqual(ev.payload.referral, {source_type: 'ad', source_id: '1202', headline: 'ZUB Paris em 12x', source_url: 'https://fb.me/x'});
+  // Resposta para quem escondeu o telefone vai pelo BSUID em "recipient"
+  assert.deepEqual(buildSendBody('text', {text: 'Oi!'}, 'BR.1349120865'),
+    {messaging_product: 'whatsapp', recipient_type: 'individual', recipient: 'BR.1349120865', type: 'text', text: {body: 'Oi!', preview_url: false}});
+  assert.equal(buildSendBody('text', {text: 'Oi!'}, '5594999990000').to, '5594999990000');
+  assert.throws(() => buildSendBody('text', {text: 'x'}, 'qualquer'));
+  assert.equal(bsuidDe('whatsapp:BR.12'), 'BR.12');
+  assert.equal(bsuidDe('5594999990000'), null);
+  assert.equal(telefoneDe('BR.12'), null);
+  assert.equal(telefoneDe('+55 94 99999-0000'), '5594999990000');
+  assert.equal(referralDoAnuncio(null), null);
+  assert.equal(referralDoAnuncio({}), null);
+});

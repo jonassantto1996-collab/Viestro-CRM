@@ -6,23 +6,26 @@ import {ferramentaPara, etapasDoAgente, lerSugestao, montarPedido, FERRAMENTA_RE
 // Modelo barato por padrão; CRM_AGENTE_MODELO troca sem mexer no código.
 export class ErroAgente extends Error {}
 
-type Entrada = {empresa: string; nicho: string; agente: Record<string, unknown>; contato: string; mensagens: {direction: string; message_type: string; body: string | null; transcript?: string | null; at: string}[]; automatico?: boolean; etapas?: string[]; etapaAtual?: string | null; modelo?: string; criterios?: string[]};
+type Entrada = {empresa: string; nicho: string; agente: Record<string, unknown>; contato: string; mensagens: {direction: string; message_type: string; body: string | null; transcript?: string | null; transcript_status?: string | null; at: string}[]; automatico?: boolean; etapas?: string[]; etapaAtual?: string | null; modelo?: string; criterios?: string[];
+  // Imagens e documentos do cliente já no formato da API (blocos image/document), situação dos áudios e anúncio de origem.
+  anexos?: unknown[]; audio?: string | null; origem?: string | null};
 
 export async function sugerirResposta(entrada: Entrada) {
   const chave = process.env.ANTHROPIC_API_KEY;
   if (!chave) throw new ErroAgente('Falta configurar a chave da IA (ANTHROPIC_API_KEY) na Vercel.');
   // Fotos só no automático (no modo sugestão quem envia é a pessoa da equipe).
   const fotos = entrada.automatico ? modelosComFoto(entrada.agente) : [];
-  const {sistema, usuario} = montarPedido({...entrada, fotos});
-  const ferramenta = ferramentaPara(etapasDoAgente(entrada.agente, entrada.etapas), entrada.criterios || [], fotos);
+  const anexos = entrada.anexos || [];
+  const {sistema, usuario} = montarPedido({...entrada, fotos, anexos: anexos.length});
+  const ferramenta = ferramentaPara(etapasDoAgente(entrada.agente, entrada.etapas), entrada.criterios || [], fotos, anexos.length);
   // Modelo da empresa (rápido/avançado); o simulador do dono pode forçar outro para comparar.
   const modelo = entrada.modelo || modeloDoAgente(entrada.agente, process.env.CRM_AGENTE_MODELO);
-  const {beta, body} = chamadaDoAgente({modelo, sistema, usuario, ferramenta});
+  const {beta, body} = chamadaDoAgente({modelo, sistema, usuario, ferramenta, anexos});
   const r = await fetch(`${process.env.ANTHROPIC_BASE_URL || 'https://api.anthropic.com'}/v1/messages`, {
     method: 'POST',
     headers: {'content-type': 'application/json', 'x-api-key': chave, 'anthropic-version': '2023-06-01', ...(beta ? {'anthropic-beta': beta} : {})},
     body: JSON.stringify(body),
-    signal: AbortSignal.timeout(40_000),
+    signal: AbortSignal.timeout(anexos.length ? 60_000 : 40_000),
   }).catch(() => null);
   if (!r) throw new ErroAgente('A IA não respondeu agora. Tente de novo.');
   const d: any = await r.json().catch(() => null);
@@ -35,9 +38,9 @@ export async function sugerirResposta(entrada: Entrada) {
     throw new ErroAgente('A IA não respondeu agora. Tente de novo.');
   }
   const bloco = (d?.content || []).find((b: any) => b.type === 'tool_use' && b.name === ferramenta.name);
-  const sugestao = lerSugestao(bloco?.input, etapasDoAgente(entrada.agente, entrada.etapas), criteriosDoAgente(entrada.criterios), fotos);
+  const sugestao = lerSugestao(bloco?.input, etapasDoAgente(entrada.agente, entrada.etapas), criteriosDoAgente(entrada.criterios), fotos, anexos.length);
   // Registro sem conteúdo: só modelo e consumo, para acompanhar custo.
-  console.log(`[agente] ${entrada.automatico ? 'automatico' : 'sugestao'} modelo=${d?.model || modelo} ok=${!!sugestao} parada=${d?.stop_reason ?? '?'} entrada=${d?.usage?.input_tokens ?? '?'} cache=${d?.usage?.cache_read_input_tokens ?? 0} saida=${d?.usage?.output_tokens ?? '?'}`);
+  console.log(`[agente] ${entrada.automatico ? 'automatico' : 'sugestao'} modelo=${d?.model || modelo} ok=${!!sugestao} parada=${d?.stop_reason ?? '?'} entrada=${d?.usage?.input_tokens ?? '?'} cache=${d?.usage?.cache_read_input_tokens ?? 0} saida=${d?.usage?.output_tokens ?? '?'} anexos=${anexos.length}`);
   if (!sugestao) throw new ErroAgente('A IA não conseguiu sugerir uma resposta para esta conversa.');
   return sugestao;
 }

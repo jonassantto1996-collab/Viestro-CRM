@@ -1,6 +1,7 @@
 import 'server-only';
 import type {SupabaseClient} from '@supabase/supabase-js';
 import {ErroFerramenta} from '@/lib/mcp-protocolo.mjs';
+import {lerTudo} from '@/lib/paginar.mjs';
 
 // Ferramentas de CONSULTA do conector do Claude. Todas filtram pela empresa dona do endereço
 // (company_id) porque usam a chave de serviço, que ignora o RLS. Nada aqui altera dados.
@@ -43,9 +44,9 @@ export function criarFerramentas(db: SupabaseClient, empresaId: string): Ferrame
   // Carregamento com cache por chamada (cada requisição cria um conjunto novo).
   let registros: Promise<Registro[]> | null = null;
   const carregarRegistros = () => registros ??= (async () => {
-    const {data, error} = await db.from('crm_records').select('id,kind,data,created_at,updated_at').eq('company_id', empresaId).in('kind', ['leads', 'tasks', 'activity']).order('created_at', {ascending: false}).limit(5000);
-    if (error) throw error;
-    return (data || []) as Registro[];
+    // Em páginas: o Supabase devolve no máximo 1.000 linhas por consulta.
+    return await lerTudo((de, ate) => db.from('crm_records').select('id,kind,data,created_at,updated_at').eq('company_id', empresaId)
+      .in('kind', ['leads', 'tasks', 'activity']).order('created_at', {ascending: false}).order('id').range(de, ate), {max: 10000}) as Registro[];
   })();
 
   let empresa: Promise<{name: string; niche: string; settings: any}> | null = null;
@@ -71,9 +72,9 @@ export function criarFerramentas(db: SupabaseClient, empresaId: string): Ferrame
   }
 
   async function contatosWa() {
-    const {data, error} = await db.from('wa_contacts').select('id,name,phone_e164,crm_lead_id').eq('company_id', empresaId).limit(5000);
-    if (error) throw error;
-    return data || [];
+    // Em páginas: com mais de 1.000 contatos, os que passavam disso apareciam sem nome e sem telefone.
+    return await lerTudo((de, ate) => db.from('wa_contacts').select('id,name,phone_e164,wa_id,crm_lead_id').eq('company_id', empresaId)
+      .order('id').range(de, ate), {max: 20000});
   }
 
   async function conversasWa(limite: number, contatoIds?: string[]) {
@@ -89,7 +90,8 @@ export function criarFerramentas(db: SupabaseClient, empresaId: string): Ferrame
     const esperando = !!c.last_inbound_at && Date.parse(c.last_inbound_at) > (c.last_outbound_at ? Date.parse(c.last_outbound_at) : 0);
     const janela = c.service_window_expires_at && Date.parse(c.service_window_expires_at) > Date.now();
     return {
-      conversa_id: c.id, contato: contato?.name || null, telefone: contato?.phone_e164 || null, lead_id: contato?.crm_lead_id || null,
+      conversa_id: c.id, contato: contato?.name || null, telefone: contato?.phone_e164 || null,
+      ...(!contato?.phone_e164 && contato?.wa_id ? {id_whatsapp: contato.wa_id, aviso: 'Telefone oculto pelo cliente (só o ID do WhatsApp)'} : {}), lead_id: contato?.crm_lead_id || null,
       ultima_mensagem: dataHora(c.last_message_at), previa: corta(c.last_message_preview, 160),
       esperando_resposta: esperando, dias_esperando: esperando ? diasDesde(c.last_inbound_at) : null,
       janela_24h_aberta: !!janela,
@@ -102,7 +104,7 @@ export function criarFerramentas(db: SupabaseClient, empresaId: string): Ferrame
       .not('message_type', 'in', `(${IGNORAR_WA.join(',')})`)
       .order('created_at', {ascending: false}).limit(limite);
     if (error) throw error;
-    return (data || []).map(m => ({em: m.provider_timestamp || m.created_at, de: m.direction === 'outbound' ? 'Viestro' : 'Cliente', texto: corta(m.message_type === 'audio' && m.transcript ? `[Áudio, transcrição] ${m.transcript}` : textoMensagem(m.message_type, m.body), 1500)}))
+    return (data || []).map(m => ({em: m.provider_timestamp || m.created_at, de: m.direction === 'outbound' ? 'Viestro' : 'Cliente', texto: corta(m.message_type === 'audio' && m.transcript ? `[Áudio, transcrição] ${m.transcript}` : (m.message_type === 'image' || m.message_type === 'document') && m.transcript ? `[${m.message_type === 'image' ? 'Imagem' : 'Documento'}, lido pelo agente] ${m.transcript}` : textoMensagem(m.message_type, m.body), 1500)}))
       .sort((a, b) => a.em.localeCompare(b.em)).map(m => ({...m, em: dataHora(m.em)}));
   }
 
