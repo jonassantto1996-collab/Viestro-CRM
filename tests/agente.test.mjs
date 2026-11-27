@@ -30,7 +30,7 @@ test('pedido ao modelo: base no sistema, conversa como dados, ignora eventos té
   assert.ok(sistema.includes('Sofia'));
   assert.ok(sistema.includes('Nunca dê diagnóstico'));
   assert.ok(usuario.includes('Cliente: Quanto custa a limpeza?'));
-  assert.ok(usuario.includes('[enviou áudio, sem texto]'));
+  assert.ok(usuario.includes('[mandou um áudio que não deu para ouvir]'));
   assert.ok(!usuario.includes('👍'));
   assert.equal((usuario.match(/<\/conversa>/g) || []).length, 1); // cliente não fecha o bloco de conversa
   assert.ok(usuario.includes('Nome do cliente no WhatsApp: Ana'));
@@ -107,7 +107,7 @@ test('áudio transcrito entra na conversa como texto para o agente', () => {
     {direction: 'inbound', message_type: 'audio', body: '[Áudio]', transcript: null, at: '2026-11-16T02:10:48Z'},
   ]});
   assert.ok(usuario.includes('[mandou um áudio; transcrição automática] Quero marcar uma limpeza no sábado'));
-  assert.ok(usuario.includes('[enviou áudio, sem texto]'));
+  assert.ok(usuario.includes('[mandou um áudio que não deu para ouvir]'));
   assert.ok(sistema.includes('Áudios chegam já transcritos'));
 });
 

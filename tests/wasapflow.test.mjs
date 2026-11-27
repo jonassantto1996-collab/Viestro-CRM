@@ -54,7 +54,7 @@ test('message.received de texto vira "message" com a mesma chave do caminho anti
     text: 'Quanto custa?', contact_name: 'João', timestamp: 1764000000, raw: {message: {id: 'wamid.A1', type: 'text', text: {body: 'Quanto custa?'}}}}));
   assert.equal(n.waba_id, '111222333');
   assert.deepEqual(n.events, [{type: 'message', key: '444555666:msg:wamid.A1', phone_number_id: '444555666',
-    payload: {wa_id: '5594999990000', name: 'João', wamid: 'wamid.A1', ts: '2025-11-24T16:00:00.000Z', type: 'text', body: 'Quanto custa?', media_id: undefined}}]);
+    payload: {wa_id: '5594999990000', bsuid: 'BR.1', name: 'João', wamid: 'wamid.A1', ts: '2025-11-24T16:00:00.000Z', type: 'text', body: 'Quanto custa?', media_id: undefined}}]);
   assert.deepEqual(n.aviso, {clear: [AVISO.AGENTE_META]}); // mensagem normal: o agente da Meta não está mais atendendo
 });
 
@@ -73,10 +73,43 @@ test('message.received de áudio e imagem trazem o id da mídia (raw.message)', 
   assert.equal(simples.events[0].payload.body, 'oi');
 });
 
-test('mensagem só com BSUID (sem telefone) é descartada e contada', () => {
+test('mensagem só com BSUID (telefone oculto) entra com o BSUID; sem nenhum dos dois é descartada e contada', () => {
   const n = normalizeWasapflow(env('message.received', {from: null, bsuid: 'BR.99', message_id: 'wamid.B', type: 'text', text: 'oi'}));
-  assert.equal(n.events.length, 0);
-  assert.equal(n.semTelefone, 1);
+  assert.equal(n.events.length, 1);
+  assert.equal(n.events[0].payload.bsuid, 'BR.99');
+  assert.equal(n.events[0].payload.wa_id, undefined);
+  assert.equal(n.semTelefone, 0);
+  // BSUID no próprio "from" (com ou sem o prefixo whatsapp:) e nos outros nomes de campo
+  assert.equal(normalizeWasapflow(env('message.received', {from: 'whatsapp:BR.77', message_id: 'w1', type: 'text', text: 'oi'})).events[0].payload.bsuid, 'BR.77');
+  assert.equal(normalizeWasapflow(env('message.received', {from_user_id: 'US.ENT.55', message_id: 'w2', type: 'text', text: 'oi'})).events[0].payload.bsuid, 'US.ENT.55');
+  const eco = normalizeWasapflow(env('message.echo', {recipient: 'BR.88', message_id: 'w3', type: 'text', text: 'oi'}));
+  assert.deepEqual([eco.events[0].type, eco.events[0].payload.bsuid], ['echo', 'BR.88']);
+  const nada = normalizeWasapflow(env('message.received', {from: null, message_id: 'wamid.C', type: 'text', text: 'oi'}));
+  assert.equal(nada.events.length, 0);
+  assert.equal(nada.semTelefone, 1);
+});
+
+test('anúncio Clique para WhatsApp: referral vai junto da mensagem (do evento ou da mensagem original)', () => {
+  const ref = {source_type: 'ad', source_id: '120210000', source_url: 'https://fb.me/abc', headline: 'Moto elétrica em 12x', body: 'Sem gasolina',
+    media_type: 'image', ctwa_clid: 'ARAk', image_url: 'https://x/y.jpg', extra: {a: 1}};
+  const a = normalizeWasapflow(env('message.received', {from: '5594999990000', message_id: 'wr1', type: 'text', text: 'Oi', referral: ref}));
+  assert.deepEqual(a.events[0].payload.referral, {source_type: 'ad', source_id: '120210000', source_url: 'https://fb.me/abc',
+    headline: 'Moto elétrica em 12x', body: 'Sem gasolina', media_type: 'image', ctwa_clid: 'ARAk'});
+  const b = normalizeWasapflow(env('message.received', {from: '5594999990000', message_id: 'wr2', type: 'text', text: 'Oi',
+    raw: {message: {type: 'text', text: {body: 'Oi'}, referral: {source_id: '99', headline: 'Promo', source_url: 'javascript:alert(1)'}}}}));
+  assert.deepEqual(b.events[0].payload.referral, {source_id: '99', headline: 'Promo'});
+  const c = normalizeWasapflow(env('message.received', {from: '5594999990000', message_id: 'wr3', type: 'text', text: 'Oi', referral: 'x'}));
+  assert.equal(c.events[0].payload.referral, undefined);
+});
+
+test('message.status_updated (evento novo) vira status como os antigos; status desconhecido é ignorado', () => {
+  const n = normalizeWasapflow(env('message.status_updated', {message_id: 'wamid.S', status: 'delivered'}));
+  assert.deepEqual(n.events[0], {type: 'status', key: '444555666:st:wamid.S:delivered', phone_number_id: '444555666',
+    payload: {wamid: 'wamid.S', status: 'delivered', ts: '2025-11-24T16:00:00.000Z', error_code: undefined}});
+  assert.equal(n.desconhecido, null);
+  const f = normalizeWasapflow(env('message.status_updated', {message_id: 'wamid.S', status: 'FAILED', errors: [{code: 131042}]}));
+  assert.equal(f.events[0].payload.error_code, '131042');
+  assert.equal(normalizeWasapflow(env('message.status_updated', {message_id: 'wamid.S', status: 'deleted'})).events.length, 0);
 });
 
 test('message.echo (celular do atendente) vira "echo" de saída', () => {
@@ -151,7 +184,9 @@ test('pedido de envio: texto, modelo e imagem nas rotas da ponte', () => {
     {path: '/messages/media', body: {to: '5594999990000', type: 'image', media: {link: 'https://x.supabase.co/a.jpg', caption: '📷 X16'}}});
   assert.throws(() => pedidoDeEnvio('image', {image: {link: 'http://inseguro/a.jpg'}}, '5594999990000'));
   assert.throws(() => pedidoDeEnvio('audio', {}, '5594999990000'));
-  assert.throws(() => pedidoDeEnvio('text', {text: 'x'}, 'BR.123'));
+  // Telefone oculto: envia pelo BSUID em "recipient"
+  assert.deepEqual(pedidoDeEnvio('text', {text: 'x'}, 'BR.123'), {path: '/messages/send', body: {recipient: 'BR.123', text: 'x', preview_url: false}});
+  assert.throws(() => pedidoDeEnvio('text', {text: 'x'}, 'abc'));
 });
 
 test('resposta da ponte: wamid em message_id ou messages[0].id', () => {

@@ -115,7 +115,7 @@ export async function GET(req: Request) {
     }
 
     let q = db.from('wa_conversations')
-      .select('id,status,category,unread_count,assigned_user_id,last_message_at,last_message_preview,last_inbound_at,last_outbound_at,first_inbound_at,first_response_at,service_window_expires_at,contact:wa_contacts(id,name,phone_e164,crm_lead_id,marketing_opt_out_at),account:wa_accounts(id,phone_e164,display_name,connection_status,provider,provider_alert_code,provider_alert_at),agent:wa_agent_state(paused_until,paused_reason,handoff_at)')
+      .select('id,status,category,unread_count,assigned_user_id,ad_referral,last_message_at,last_message_preview,last_inbound_at,last_outbound_at,first_inbound_at,first_response_at,service_window_expires_at,contact:wa_contacts(id,name,phone_e164,crm_lead_id,marketing_opt_out_at),account:wa_accounts(id,phone_e164,display_name,connection_status,provider,provider_alert_code,provider_alert_at),agent:wa_agent_state(paused_until,paused_reason,handoff_at)')
       .order('last_message_at', {ascending: false, nullsFirst: false}).limit(300);
     const status = p.get('status');
     if (status && ['open', 'pending', 'resolved'].includes(status)) q = q.eq('status', status);
@@ -201,7 +201,7 @@ export async function POST(req: Request) {
         const [co, conv, msgs] = await Promise.all([
           db.from('crm_companies').select('name,niche,settings').eq('id', member.company_id).single(),
           db.from('wa_conversations').select('id,contact:wa_contacts(name)').eq('id', b.conversation).maybeSingle(),
-          db.from('wa_messages').select('direction,message_type,body,transcript,provider_timestamp,created_at')
+          db.from('wa_messages').select('direction,message_type,body,transcript,transcript_status,provider_timestamp,created_at')
             .eq('conversation_id', b.conversation).order('created_at', {ascending: false}).limit(40),
         ]);
         if (co.error || !co.data) return reply({error: 'Não foi possível carregar a empresa.'}, 400);
